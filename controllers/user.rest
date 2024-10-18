@@ -1,0 +1,34 @@
+POST http://localhost:8080/admin/create
+content-type: application/json
+
+{   
+    "name": "John Doe",
+    "email": "abhay1029singh@gmail.com",
+    "country_code": "1234567890",
+    "phone_number": "1234567890",
+    "phone_number_otp": "123456",
+    "password": "abhay@123",
+    "confirm_password": "abhay@123"
+}
+
+### Login
+POST http://localhost:8080/user/login
+content-type: application/json
+
+{
+  "email": "abhay1029singh@gmail.com",
+  "password": "Abhay@123"
+}
+
+### Request Reset Password Link
+GET http://localhost:8080/user/reset-password?email=abhay1029singh@gmail.com
+
+### Reset Password
+POST http://localhost:8080/user/reset-password
+content-type: application/json
+
+{
+  "token": "hVKisM77QEs93uAlMAjglymlfEpkAblVWGTdJwdAfZn3bh9KOz5PaPPe",
+  "password": "Abhay@9211",
+  "email": "abhay1029singh@gmail.com"
+}
