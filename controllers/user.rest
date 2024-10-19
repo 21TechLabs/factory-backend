@@ -1,12 +1,9 @@
-POST http://localhost:8080/admin/create
+POST http://localhost:8080/user/create
 content-type: application/json
 
 {   
     "name": "John Doe",
-    "email": "abhay1029singh@gmail.com",
-    "country_code": "1234567890",
-    "phone_number": "1234567890",
-    "phone_number_otp": "123456",
+    "email": "test2@gmail.com",
     "password": "abhay@123",
     "confirm_password": "abhay@123"
 }

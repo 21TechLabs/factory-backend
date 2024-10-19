@@ -9,7 +9,7 @@ import (
 )
 
 func SetupUser(app *fiber.App) {
-	app.Post("/user/admin/create", middleware.SchemaValidatorMiddleware(func() interface{} {
+	app.Post("/user/create", middleware.SchemaValidatorMiddleware(func() interface{} {
 		return &dto.UserCreateDto{}
 	}), controllers.UserCreate(models.Roles.Admin))
 
@@ -21,10 +21,6 @@ func SetupUser(app *fiber.App) {
 
 	app.Get("/user/reset-password", controllers.UserRequestPasswordResetLink)
 	app.Post("/user/reset-password", middleware.SchemaValidatorMiddleware(func() interface{} { return &dto.UserPasswordUpdateDto{} }), controllers.UserPasswordUpdate)
-
-	app.Post("/user/student/:instituteid/create", middleware.SchemaValidatorMiddleware(func() interface{} {
-		return &dto.UserCreateDto{}
-	}), controllers.UserCreate(models.Roles.Student))
 
 	app.Get("/user/verify-email", controllers.UserVerifyEmailToken)
 

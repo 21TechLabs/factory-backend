@@ -88,6 +88,12 @@ func UserCreate(user dto.UserCreateDto, role string) (User, error) {
 		return User{}, err
 	}
 
+	// send email verification msg
+	err = newUser.SendEmailVerifyEmail()
+	if err != nil {
+		return User{}, err
+	}
+
 	err = mgm.Coll(&newUser).Create(&newUser)
 
 	if err != nil {
@@ -135,6 +141,37 @@ func (u *User) GetDetails(allowPasswordResetToken bool) User {
 	}
 
 	return usr
+}
+
+func (u *User) SendEmailVerifyEmail() error {
+	// generate token
+	token, err := GetAlphaNumString(64, "alnum")
+	if err != nil {
+		return err
+	}
+	// save token
+	u.EmailVerificationToken = token
+	// send email
+	var frontendURL = utils.GetEnv("FRONTEND_URL", false)
+	var req = notifications.NewRequest([]string{u.Email}, fmt.Sprintf("Welcome to the family %s.", u.Name), fmt.Sprintf("Hey %s, we are glad that you joined our family, to verify your email visit %s/verify-email?email=%s&&token=%s", u.Name, frontendURL, u.Email, token))
+
+	var template templates.WelcomeMessage = templates.WelcomeMessage{
+		Name:      u.Name,
+		BrandName: "",
+		Link:      fmt.Sprintf("%s/verify-email?email=%s&&token=%s", frontendURL, u.Email, token),
+	}
+	err = template.ParseAsHTML(req)
+
+	if err == nil {
+		go func() {
+			_, err := req.SendEmail()
+			if err != nil {
+				log.Default().Panicf("Failed to send email to %s", u.Email)
+			}
+		}()
+	}
+
+	return nil
 }
 
 func (u *User) sendPasswordResetEmail(token string) error {

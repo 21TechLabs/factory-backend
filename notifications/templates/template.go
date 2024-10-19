@@ -19,6 +19,7 @@ func GenericParse(r *notifications.Request, template string, body interface{}) e
 type WelcomeMessage struct {
 	Name      string
 	BrandName string
+	Link      string
 }
 
 func (msg *WelcomeMessage) ParseAsHTML(r *notifications.Request) error {
