@@ -5,12 +5,15 @@ import (
 	"crypto/sha512"
 	"encoding/hex"
 	"fmt"
+	"log"
 	"math/big"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/21TechLabs/factory-be/dto"
+	"github.com/21TechLabs/factory-be/notifications"
+	"github.com/21TechLabs/factory-be/notifications/templates"
 	"github.com/21TechLabs/factory-be/utils"
 	"github.com/kamva/mgm/v3"
 	"github.com/kataras/jwt"
@@ -135,9 +138,23 @@ func (u *User) GetDetails(allowPasswordResetToken bool) User {
 }
 
 func (u *User) sendPasswordResetEmail(token string) error {
-	// Send the Password Reset Email to the user's email address
-	// using an email service
-	fmt.Printf("Password Reset Email Sent, token is %v \n", token)
+	var frontendURL = utils.GetEnv("FRONTEND_URL", false)
+
+	var req = notifications.NewRequest([]string{u.Email}, fmt.Sprintf("%s, your password reset email.", u.Name), fmt.Sprintf("to reset the password please visit %s/reset-password?email=%s&&token=%s", frontendURL, u.Email, token))
+
+	var template templates.ResetPasswordMessage = templates.ResetPasswordMessage{
+		Name:      u.Name,
+		BrandName: "",
+		Link:      fmt.Sprintf("%s/reset-password?email=%s&&token=%s", frontendURL, u.Email, token),
+	}
+	template.ParseAsHTML(req)
+	go func() {
+		_, err := req.SendEmail()
+
+		if err != nil {
+			log.Default().Panicf("Failed to send email to %s", u.Email)
+		}
+	}()
 	return nil
 }
 
