@@ -23,11 +23,13 @@ import (
 type _Role struct {
 	Admin   string
 	Student string
+	Client  string
 }
 
 var Roles = _Role{
 	Admin:   "admin",
 	Student: "student",
+	Client:  "client",
 }
 
 type User struct {
@@ -48,6 +50,7 @@ type User struct {
 	DeleteAccountAfter     time.Time `bson:"deleteAccountAfter" json:"deleteAccountAfter"`         // Date/time after which the account will be deleted
 	AccountDeleted         bool      `bson:"accountDeleted" json:"accountDeleted"`                 // Whether the account is deleted4
 	AccountCreated         bool      `bson:"accountCreated" json:"accountCreated"`                 // Date/time when the account was created
+	CoinBalance            int64     `bson:"coinBalance" json:"coinBalance"`                       // User's coin balance
 }
 
 type Student struct {
@@ -373,7 +376,7 @@ func UserGetByEmail(email string) (User, error) {
 	}
 
 	if len(users) == 0 {
-		return User{}, fmt.Errorf("user with email %s not found", email)
+		return User{}, fmt.Errorf("not found")
 	}
 
 	return users[0], nil

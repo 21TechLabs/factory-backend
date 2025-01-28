@@ -1,0 +1,15 @@
+package routes
+
+import (
+	"github.com/21TechLabs/factory-be/controllers/oauth"
+	"github.com/gofiber/fiber/v2"
+	"github.com/shareed2k/goth_fiber"
+)
+
+func SetupOAuth(app *fiber.App) {
+	app.Get("/user/oauth2/discord/login", oauth.DiscordRedirectURI)
+	app.Post("/user/oauth2/discord/login", oauth.DiscordUserLogin)
+
+	app.Get("/user/oauth2/:provider/login", goth_fiber.BeginAuthHandler)
+	app.Get("/user/oauth2/:provider/login/callback", goth_fiber.BeginAuthHandler)
+}

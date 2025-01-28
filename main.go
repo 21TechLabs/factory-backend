@@ -36,6 +36,7 @@ func main() {
 	}))
 
 	routes.SetupUser(App)
+	routes.SetupOAuth(App)
 
 	var PORT string = os.Getenv("PORT")
 	if PORT == "" {
