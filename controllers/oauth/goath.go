@@ -26,10 +26,7 @@ func GothicCallback(ctx *fiber.Ctx) error {
 	gothicUser, err := goth_fiber.CompleteUserAuth(ctx)
 
 	if err != nil {
-		return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error":   err.Error(),
-			"success": false,
-		})
+		return utils.ErrorResponse(ctx, fiber.StatusInternalServerError, err.Error())
 	}
 
 	var password = fmt.Sprintf("%s%s%s", gothicUser.Email, gothicUser.UserID, gothicUser.AccessToken)
@@ -46,10 +43,7 @@ func GothicCallback(ctx *fiber.Ctx) error {
 
 	if err != nil {
 		if err.Error() != "not found" {
-			return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"error":   err.Error(),
-				"success": false,
-			})
+			return utils.ErrorResponse(ctx, fiber.StatusBadRequest, err.Error())
 		}
 	}
 
@@ -58,13 +52,9 @@ func GothicCallback(ctx *fiber.Ctx) error {
 		user, err = models.UserCreate(userCreate, models.Roles.Client)
 
 		if err != nil {
-			return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"error":   err.Error(),
-				"success": false,
-			})
+			return utils.ErrorResponse(ctx, fiber.StatusBadRequest, err.Error())
 		}
 	}
 
-	controllers.SetLoginTokenAndSendResponse(ctx, user, false)
-	return nil
+	return controllers.SetLoginTokenAndSendResponse(ctx, user, false)
 }

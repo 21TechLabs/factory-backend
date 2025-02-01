@@ -2,20 +2,22 @@ package controllers
 
 import (
 	"github.com/21TechLabs/factory-be/models"
+	"github.com/21TechLabs/factory-be/utils"
 	"github.com/gofiber/fiber/v2"
 )
 
 func FileUpload(c *fiber.Ctx) error {
 
-	currentUser := c.Locals("user").(models.User)
+	currentUser, ok := c.Locals("user").(models.User)
+
+	if !ok {
+		return utils.ErrorResponse(c, fiber.StatusUnauthorized, "user not found")
+	}
 
 	form, err := c.MultipartForm()
 
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   err.Error(),
-			"success": false,
-		})
+		return utils.ErrorResponse(c, fiber.StatusBadRequest, err.Error())
 	}
 
 	files := form.File["files"]
@@ -23,17 +25,11 @@ func FileUpload(c *fiber.Ctx) error {
 	title := form.Value["title"]
 
 	if len(files) == 0 {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "No files uploaded",
-			"success": false,
-		})
+		return utils.ErrorResponse(c, fiber.StatusBadRequest, "no file uploaded")
 	}
 
 	if len(title) == 0 {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Title is required",
-			"success": false,
-		})
+		return utils.ErrorResponse(c, fiber.StatusBadRequest, "title is required")
 	}
 
 	var fileUploads []models.FileUpload
@@ -48,10 +44,7 @@ func FileUpload(c *fiber.Ctx) error {
 	uploadedFiles, err := currentUser.UploadFile(fileUploads)
 
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   err.Error(),
-			"success": false,
-		})
+		return utils.ErrorResponse(c, fiber.StatusBadRequest, err.Error())
 	}
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{

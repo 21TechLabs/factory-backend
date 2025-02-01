@@ -8,6 +8,7 @@ import (
 
 	"github.com/21TechLabs/factory-be/dto"
 	"github.com/21TechLabs/factory-be/models"
+	"github.com/21TechLabs/factory-be/utils"
 	"github.com/gofiber/fiber/v2"
 	"go.mongodb.org/mongo-driver/bson"
 )
@@ -36,8 +37,7 @@ func UserCreate(role string) func(*fiber.Ctx) error {
 			})
 		}
 
-		SetLoginTokenAndSendResponse(c, user, false)
-		return nil
+		return SetLoginTokenAndSendResponse(c, user, false)
 	}
 }
 
@@ -49,28 +49,19 @@ func UserPasswordUpdate(c *fiber.Ctx) error {
 	err := json.Unmarshal(body, &parsedBody)
 
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   err.Error(),
-			"success": false,
-		})
+		return utils.ErrorResponse(c, fiber.StatusBadRequest, err.Error())
 	}
 
 	currentUser, err := models.UserGetByEmail(parsedBody.Email)
 
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   err.Error(),
-			"success": false,
-		})
+		return utils.ErrorResponse(c, fiber.StatusBadRequest, err.Error())
 	}
 
 	err = currentUser.CompareAndUpdatePasswordWithToken(parsedBody.Token, parsedBody.Password)
 
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   err.Error(),
-			"success": false,
-		})
+		return utils.ErrorResponse(c, fiber.StatusBadRequest, err.Error())
 	}
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
@@ -85,10 +76,7 @@ func UserMarkForDeletion(c *fiber.Ctx) error {
 	err := currentUser.MarkAccountForDeletion()
 
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   err.Error(),
-			"success": false,
-		})
+		return utils.ErrorResponse(c, fiber.StatusBadRequest, err.Error())
 	}
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
@@ -137,33 +125,22 @@ func UserVerifyEmailToken(c *fiber.Ctx) error {
 	token := c.Query("token")
 
 	if token == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Token is required",
-			"success": false,
-		})
+		return utils.ErrorResponse(c, fiber.StatusBadRequest, "token is required")
 	}
 
 	email := c.Query("email")
 
 	if email == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Email is required",
-			"success": false,
-		})
+		return utils.ErrorResponse(c, fiber.StatusBadRequest, "email is required")
 	}
 
 	user, err := models.UserVerifyEmailToken(email, token)
 
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   err.Error(),
-			"success": false,
-		})
+		return utils.ErrorResponse(c, fiber.StatusBadRequest, err.Error())
 	}
 
-	SetLoginTokenAndSendResponse(c, user, false)
-
-	return nil
+	return SetLoginTokenAndSendResponse(c, user, false)
 }
 
 func UserLogin(c *fiber.Ctx) error {
@@ -192,15 +169,12 @@ func UserLogin(c *fiber.Ctx) error {
 		})
 	}
 
-	SetLoginTokenAndSendResponse(c, user, false)
-
-	return nil
+	return SetLoginTokenAndSendResponse(c, user, false)
 }
 
 func UserLoginVerify(c *fiber.Ctx) error {
 	var user = c.Locals("user").(models.User)
-	SetLoginTokenAndSendResponse(c, user, false)
-	return nil
+	return SetLoginTokenAndSendResponse(c, user, false)
 }
 
 func UserLogout(c *fiber.Ctx) error {

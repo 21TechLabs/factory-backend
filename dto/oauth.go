@@ -17,7 +17,7 @@ type DiscordGetExchangeTokenBody struct {
 }
 
 type DiscordUserLoginBody struct {
-	Code string `json:"code" required`
+	Code string `json:"code" required:"true"`
 }
 
 type DiscordUserWeb struct {

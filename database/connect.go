@@ -1,9 +1,10 @@
 package database
 
 import (
+	"os"
+
 	"github.com/kamva/mgm/v3"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"os"
 )
 
 func Connect(dbName string) error {
@@ -15,7 +16,7 @@ func Connect(dbName string) error {
 	err := mgm.SetDefaultConfig(nil, dbName, options.Client().ApplyURI(uri))
 
 	if err != nil {
-		return err
+		panic(err)
 	}
 	return nil
 }

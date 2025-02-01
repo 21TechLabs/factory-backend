@@ -7,6 +7,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/joho/godotenv"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 func LoadEnv() {
@@ -72,4 +73,9 @@ func GetToken(c *fiber.Ctx) (string, error) {
 		return "", RaiseError{Message: "Token not found in headers or body"}
 	}
 	return authToken, nil
+}
+
+func IsValidObjectID(id string) bool {
+	_, err := primitive.ObjectIDFromHex(id)
+	return err == nil
 }

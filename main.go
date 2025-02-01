@@ -37,6 +37,9 @@ func main() {
 
 	routes.SetupUser(App)
 	routes.SetupOAuth(App)
+	routes.SetupPayments(App)
+
+	// payments.SeedProductData()
 
 	var PORT string = os.Getenv("PORT")
 	if PORT == "" {
