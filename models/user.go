@@ -169,7 +169,7 @@ func (u *User) SendEmailVerifyEmail() error {
 		go func() {
 			_, err := req.SendEmail()
 			if err != nil {
-				log.Default().Panicf("Failed to send email to %s", u.Email)
+				log.Printf("Failed to send email to %s", u.Email)
 			}
 		}()
 	}
