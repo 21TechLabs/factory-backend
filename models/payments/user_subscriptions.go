@@ -22,6 +22,8 @@ type UserSubscription struct {
 	HasExpired               bool               `json:"hasExpired" bson:"hasExpired"`
 	PaymentMethod            string             `json:"paymentMethod" bson:"paymentMethod"`
 	ExtraOptions             map[string]string  `json:"extraOptions" bson:"extraOptions"`
+	UsageStats               map[string]int     `json:"usageStats" bson:"usageStats"`
+	MaxUsageStats            map[string]int     `json:"maxUsageStats" bson:"maxUsageStats"`
 }
 
 func (us *UserSubscription) Save(update bool) error {

@@ -1,6 +1,8 @@
 package middleware
 
 import (
+	"time"
+
 	"github.com/21TechLabs/factory-be/models"
 	"github.com/gofiber/fiber/v2"
 )
@@ -41,6 +43,13 @@ func HasActivePlanAndLevel(minLevel int) func(*fiber.Ctx) error {
 		if activeSubscription.PlanLevel < minLevel {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 				"message": "User requires a higher plan level",
+			})
+		}
+
+		// check if current subscription expired or not
+		if time.Now().After(activeSubscription.SubscriptionEndsAt) {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"message": "Subscription expired",
 			})
 		}
 
