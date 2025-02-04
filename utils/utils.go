@@ -1,6 +1,9 @@
 package utils
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"strings"
@@ -78,4 +81,11 @@ func GetToken(c *fiber.Ctx) (string, error) {
 func IsValidObjectID(id string) bool {
 	_, err := primitive.ObjectIDFromHex(id)
 	return err == nil
+}
+
+func ValidateHeaderHMACSha256(body []byte, secret string, signature string) bool {
+	hmac := hmac.New(sha256.New, []byte(secret))
+	hmac.Write(body)
+	dataHmac := hmac.Sum(nil)
+	return signature == hex.EncodeToString(dataHmac)
 }

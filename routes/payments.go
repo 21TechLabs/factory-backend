@@ -8,7 +8,9 @@ import (
 )
 
 func SetupPayments(app *fiber.App) {
-	app.Post("/payments/:paymentType", middleware.SchemaValidatorMiddleware(func() interface{} {
+	app.Post("/payments/:paymentGateway", middleware.SchemaValidatorMiddleware(func() interface{} {
 		return &dto.CreateProductDto{}
 	}), middleware.UserAuthMiddleware, payments.CreatePayment)
+
+	app.Post("/payments/:paymentGateway/verify", payments.UpdatePaymentStatusWebhook)
 }

@@ -3,8 +3,21 @@ package payments
 import (
 	"errors"
 
-	"github.com/21TechLabs/factory-be/utils"
+	"github.com/gofiber/fiber/v2"
 	"github.com/kamva/mgm/v3"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+)
+
+type SubscriptionStatus string
+
+const (
+	SubscriptionStatusPending   SubscriptionStatus = "pending"
+	SubscriptionStatusActive    SubscriptionStatus = "active"
+	SubscriptionStatusHalted    SubscriptionStatus = "halted"
+	SubscriptionStatusCompleted SubscriptionStatus = "completed"
+	SubscriptionStatusCharged   SubscriptionStatus = "charged"
+	SubscriptionStatusCancelled SubscriptionStatus = "cancelled"
 )
 
 type gateways struct {
@@ -25,6 +38,18 @@ var ProductPlanTypes = productPlanType{
 var PaymentGatewaysList = gateways{
 	Razorpay: "razorpay",
 	Stripe:   "stripe",
+}
+
+type PaymentGateway interface {
+	CreatePayment(ProductPlans, int) (UserSubscription, error)
+	VerifyPayment(string) (UserSubscription, error)
+	UpdatePaymentStatus(string) (UserSubscription, error)
+	CancelSubscription(string) (UserSubscription, error)
+	GetUserSubscription() (interface{}, error)
+	VerifyWebhookSignature(*fiber.Ctx) error
+	GetOrderIdFromWebhookRequest([]byte) (string, error)
+	SetUserId(string)
+	SetUserViaOrderId(string) error
 }
 
 type ProductPlans struct {
@@ -52,12 +77,7 @@ type Subscription struct {
 	ExpiresAfterDayCount    int               `json:"expiresAfterDayCount" bson:"expiresAfterDayCount"`
 }
 
-func ProductPlansGetByID(id string) (ProductPlans, error) {
-
-	if !utils.IsValidObjectID(id) {
-		return ProductPlans{}, errors.New("invalid id")
-	}
-
+func ProductPlansGetBy(filter bson.M) (ProductPlans, error) {
 	var productPlan ProductPlans = ProductPlans{}
 
 	coll := mgm.Coll(&ProductPlans{})
@@ -65,9 +85,7 @@ func ProductPlansGetByID(id string) (ProductPlans, error) {
 		return ProductPlans{}, errors.New("database connection not initialized")
 	}
 
-	err := coll.FindByID(id, &productPlan)
-
-	if err != nil {
+	if err := coll.First(filter, &productPlan); err != nil {
 		return ProductPlans{}, err
 	}
 
@@ -75,7 +93,15 @@ func ProductPlansGetByID(id string) (ProductPlans, error) {
 		return productPlan, errors.New("product plan not found")
 	}
 
-	return productPlan, err
+	return productPlan, nil
+}
+
+func ProductPlansGetByID(id string) (ProductPlans, error) {
+	objID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return ProductPlans{}, err
+	}
+	return ProductPlansGetBy(bson.M{"_id": objID})
 }
 
 func GetPaymentGateway(paymentType string, userId string) (PaymentGateway, error) {
@@ -89,4 +115,11 @@ func GetPaymentGateway(paymentType string, userId string) (PaymentGateway, error
 		return nil, errors.New("invalid payment type")
 	}
 	return payment, nil
+}
+
+func ProductPlansGetByAppCode(appCode string) (ProductPlans, error) {
+	if len(appCode) == 0 {
+		return ProductPlans{}, errors.New("invalid app code")
+	}
+	return ProductPlansGetBy(bson.M{"appCode": appCode})
 }

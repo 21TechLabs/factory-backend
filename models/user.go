@@ -12,12 +12,14 @@ import (
 	"time"
 
 	"github.com/21TechLabs/factory-be/dto"
+	"github.com/21TechLabs/factory-be/models/payments"
 	"github.com/21TechLabs/factory-be/notifications"
 	"github.com/21TechLabs/factory-be/notifications/templates"
 	"github.com/21TechLabs/factory-be/utils"
 	"github.com/kamva/mgm/v3"
 	"github.com/kataras/jwt"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type _Role struct {
@@ -51,12 +53,6 @@ type User struct {
 	AccountDeleted         bool      `bson:"accountDeleted" json:"accountDeleted"`                 // Whether the account is deleted4
 	AccountCreated         bool      `bson:"accountCreated" json:"accountCreated"`                 // Date/time when the account was created
 	CoinBalance            int64     `bson:"coinBalance" json:"coinBalance"`                       // User's coin balance
-}
-
-type Student struct {
-	DateOfBirth            string `bson:"dateOfBirth" json:"dateOfBirth"`                       // Student's date of birth
-	AuthorizedViaInstitute bool   `bson:"authorizedVisInstitute" json:"authorizedVisInstitute"` // Whether the student is authorized
-	InstituteId            string `bson:"instituteId" json:"instituteId"`
 }
 
 func UserCreate(user dto.UserCreateDto, role string) (User, error) {
@@ -542,4 +538,34 @@ func UserLogin(loginDto dto.UserLoginDto) (User, error) {
 	}
 
 	return user, nil
+}
+
+func (user *User) GetActiveAppSubscriptionByAppCode(appCode string) (payments.UserSubscription, error) {
+	var subscriptionColl = mgm.Coll(&payments.UserSubscription{})
+
+	res := subscriptionColl.FindOne(mgm.Ctx(), bson.M{
+		"appCode": appCode,
+		"userId":  user.ID.Hex(),
+		"status": bson.M{
+			"$in": []string{
+				string(payments.SubscriptionStatusActive),
+				string(payments.SubscriptionStatusCharged),
+				string(payments.SubscriptionStatusCompleted),
+			},
+		},
+	}, &options.FindOneOptions{})
+
+	if res.Err() != nil {
+		return payments.UserSubscription{}, res.Err()
+	}
+
+	var subscription payments.UserSubscription
+
+	err := res.Decode(&subscription)
+
+	if err != nil {
+		return payments.UserSubscription{}, err
+	}
+
+	return subscription, nil
 }

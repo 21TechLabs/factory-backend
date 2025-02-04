@@ -63,8 +63,6 @@ func GothicCallback(ctx *fiber.Ctx) error {
 		}
 	}
 
-	fmt.Printf("userCreate %v\n", userCreate)
-
 	if len(userCreate.Email) == 0 {
 		log.Printf("OAuth GothicCallback error Email not found for provider %s\n", provider)
 		return utils.ErrorResponse(ctx, fiber.StatusBadRequest, "Email not found")

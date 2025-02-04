@@ -8,38 +8,11 @@ import (
 	"time"
 
 	"github.com/21TechLabs/factory-be/utils"
+	"github.com/gofiber/fiber/v2"
+	"github.com/kamva/mgm/v3"
 	"github.com/razorpay/razorpay-go"
+	"go.mongodb.org/mongo-driver/bson"
 )
-
-type Razorpay struct {
-	UserId string
-}
-
-type RazorpaySubscriptionCreate struct {
-	AuthAttempts        int        `json:"auth_attempts"`
-	ChangeScheduledAt   *time.Time `json:"change_scheduled_at"`
-	ChargeAt            *time.Time `json:"charge_at"`
-	CreatedAt           int64      `json:"created_at"`
-	CurrentEnd          *time.Time `json:"current_end"`
-	CurrentStart        *time.Time `json:"current_start"`
-	CustomerNotify      bool       `json:"customer_notify"`
-	EndAt               *time.Time `json:"end_at"`
-	EndedAt             *time.Time `json:"ended_at"`
-	Entity              string     `json:"entity"`
-	ExpireBy            *time.Time `json:"expire_by"`
-	HasScheduledChanges bool       `json:"has_scheduled_changes"`
-	ID                  string     `json:"id"`
-	Notes               []string   `json:"notes"`
-	PaidCount           int        `json:"paid_count"`
-	PlanID              string     `json:"plan_id"`
-	Quantity            int        `json:"quantity"`
-	RemainingCount      int        `json:"remaining_count"`
-	ShortURL            string     `json:"short_url"`
-	Source              string     `json:"source"`
-	StartAt             *time.Time `json:"start_at"`
-	Status              string     `json:"status"`
-	TotalCount          int        `json:"total_count"`
-}
 
 var razorpayClient *razorpay.Client
 
@@ -102,7 +75,7 @@ func (sub *Razorpay) CreatePayment(productPlan ProductPlans, planIdx int) (UserS
 		},
 		PaymentMethod: PaymentGatewaysList.Razorpay,
 	}
-	userSubscription.Save()
+	userSubscription.Save(false)
 
 	return userSubscription, nil
 }
@@ -117,4 +90,112 @@ func (s *Razorpay) CancelSubscription(string) (UserSubscription, error) {
 
 func (s *Razorpay) GetUserSubscription() (interface{}, error) {
 	return UserSubscription{}, nil
+}
+
+func (s *Razorpay) UpdatePaymentStatus(subscriptionId string) (UserSubscription, error) {
+	// fetch subscription by order id
+	body, err := razorpayClient.Subscription.Fetch(subscriptionId, nil, nil)
+
+	if err != nil {
+		log.Println("Payment gateway update error razorpay.UpdatePaymentStatus:", err.Error())
+		return UserSubscription{}, fmt.Errorf("failed to update Razorpay subscription: %w", err)
+	}
+
+	jsonData, err := json.Marshal(body)
+	if err != nil {
+		log.Println("Error converting map to JSON razorpay.UpdatePaymentStatus: ", err)
+		return UserSubscription{}, fmt.Errorf("failed to update Razorpay subscription: %w", err)
+	}
+
+	var razorpaySubscriptionWebhook RazorpaySubscriptionFetch
+
+	if err := json.Unmarshal(jsonData, &razorpaySubscriptionWebhook); err != nil {
+		log.Println("Payment gateway update error razorpay.UpdatePaymentStatus: ", err)
+		return UserSubscription{}, fmt.Errorf("failed to update Razorpay subscription: %w", err)
+	}
+
+	var userSubscription UserSubscription
+
+	var userSubColl = mgm.Coll(&UserSubscription{})
+	if err := userSubColl.First(bson.M{"paymentId." + PaymentGatewaysList.Razorpay: subscriptionId}, &userSubscription); err != nil {
+		log.Println("Payment gateway update error razorpay.UpdatePaymentStatus: ", err)
+		return UserSubscription{}, fmt.Errorf("failed to update Razorpay subscription: %w", err)
+	}
+
+	if userSubscription.ID.IsZero() {
+		return UserSubscription{}, errors.New("subscription not found")
+	}
+
+	userSubscription.SubscriptionStartsAt = time.Unix(razorpaySubscriptionWebhook.StartAt, 0)
+	userSubscription.ReSubscribeOn = time.Unix(razorpaySubscriptionWebhook.StartAt, 0)
+
+	switch razorpaySubscriptionWebhook.Status {
+	case SubscriptionStatusActive:
+		userSubscription.Status = SubscriptionStatusActive
+		userSubscription.SubscriptionStartsAt = time.Unix(razorpaySubscriptionWebhook.CurrentStart, 0)
+		userSubscription.ReSubscribeOn = time.Unix(razorpaySubscriptionWebhook.CurrentStart, 0)
+		userSubscription.SubscriptionEndsAt = time.Unix(razorpaySubscriptionWebhook.CurrentEnd, 0)
+		userSubscription.HasExpired = false
+	case SubscriptionStatusCompleted:
+		userSubscription.Status = SubscriptionStatusCompleted
+		userSubscription.HasExpired = false
+		userSubscription.SubscriptionStartsAt = time.Unix(razorpaySubscriptionWebhook.CurrentStart, 0)
+		userSubscription.ReSubscribeOn = time.Unix(razorpaySubscriptionWebhook.CurrentStart, 0)
+		userSubscription.SubscriptionEndsAt = time.Unix(razorpaySubscriptionWebhook.CurrentEnd, 0)
+	case SubscriptionStatusCharged:
+		userSubscription.Status = SubscriptionStatusCharged
+		userSubscription.HasExpired = false
+		userSubscription.SubscriptionStartsAt = time.Unix(razorpaySubscriptionWebhook.CurrentStart, 0)
+		userSubscription.ReSubscribeOn = time.Unix(razorpaySubscriptionWebhook.CurrentStart, 0)
+		userSubscription.SubscriptionEndsAt = time.Unix(razorpaySubscriptionWebhook.CurrentEnd, 0)
+	case SubscriptionStatusCancelled:
+		userSubscription.Status = SubscriptionStatusCancelled
+		userSubscription.HasExpired = true
+	case SubscriptionStatusHalted:
+		userSubscription.Status = SubscriptionStatusHalted
+		userSubscription.HasExpired = true
+	}
+
+	userSubscription.Save(true)
+
+	return UserSubscription{}, nil
+}
+
+func (s *Razorpay) VerifyWebhookSignature(c *fiber.Ctx) error {
+	headerSignature := c.Get("x-razorpay-signature")
+
+	var secret = utils.GetEnv("PAYMENTS_HMEC_SECRET", false)
+
+	if !utils.ValidateHeaderHMACSha256(c.Body(), secret, headerSignature) {
+		return errors.New("invalid signature")
+	}
+
+	return nil
+}
+
+func (s *Razorpay) GetOrderIdFromWebhookRequest(body []byte) (string, error) {
+	var data RazorpaySubsctiptionWebhook
+	if err := json.Unmarshal(body, &data); err != nil {
+		log.Printf("Payment gateway create error -- Get Order Id from Webhook Request controller.payments.GetOrderIdFromWebhookRequest.razorpay: %v", err)
+		return "", err
+	}
+	return data.Payload.Subscription.Entity.ID, nil
+}
+
+func (s *Razorpay) SetUserId(userId string) {
+	s.UserId = userId
+}
+
+func (s *Razorpay) SetUserViaOrderId(orderId string) error {
+	var userSubColl = mgm.Coll(&UserSubscription{})
+
+	var userSubscription UserSubscription
+
+	if err := userSubColl.First(bson.M{"paymentId." + PaymentGatewaysList.Razorpay: orderId}, &userSubscription); err != nil {
+		log.Printf("Payment gateway create error -- Get User Subscription controller.payments.SetUserViaOrderId.razorpay: %v", err)
+		return err
+	}
+
+	s.SetUserId(userSubscription.UserId)
+	return nil
 }
