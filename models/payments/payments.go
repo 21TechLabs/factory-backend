@@ -65,16 +65,19 @@ type ProductPlans struct {
 
 type Subscription struct {
 	mgm.DefaultModel        `bson:",inline"`
-	Name                    string            `json:"name" bson:"name"`
-	Description             string            `json:"description" bson:"description"`
-	PlanID                  map[string]string `json:"planId" bson:"planId"`
-	Amount                  float64           `json:"amount" bson:"amount"`
-	Features                []string          `json:"features" bson:"features"`
-	EveryNDays              int               `json:"everyNDays" bson:"everyNDays"`
-	BillingCycles           int               `json:"billingCycle" bson:"billingCycle"`
-	Level                   int               `json:"level" bson:"level"`
-	TokenRewardEveryRenewal int64             `json:"tokenReward" bson:"tokenReward"`
-	ExpiresAfterDayCount    int               `json:"expiresAfterDayCount" bson:"expiresAfterDayCount"`
+	Name                    string             `json:"name" bson:"name"`
+	Description             string             `json:"description" bson:"description"`
+	PlanID                  map[string]string  `json:"planId" bson:"planId"`
+	Amount                  float64            `json:"amount" bson:"amount"`
+	Features                []string           `json:"features" bson:"features"`
+	EveryNDays              int                `json:"everyNDays" bson:"everyNDays"`
+	BillingCycles           int                `json:"billingCycle" bson:"billingCycle"`
+	Level                   int                `json:"level" bson:"level"`
+	TokenRewardEveryRenewal int64              `json:"tokenReward" bson:"tokenReward"`
+	ExpiresAfterDayCount    int                `json:"expiresAfterDayCount" bson:"expiresAfterDayCount"`
+	CurrencySymbol          string             `json:"currencySymbol" bson:"currencySymbol"`
+	ForeignCurrencyPricing  map[string]float64 `json:"foreignCurrencyPricing" bson:"foreignCurrencyPricing"`
+	Recommended             bool               `json:"recommended" bson:"recommended"`
 }
 
 func ProductPlansGetBy(filter bson.M) (ProductPlans, error) {

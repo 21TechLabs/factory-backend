@@ -7,9 +7,6 @@ import (
 )
 
 func SetupOAuth(app *fiber.App) {
-	// app.Get("/user/oauth2/discord/login", oauth.DiscordRedirectURI)
-	// app.Post("/user/oauth2/discord/login", oauth.DiscordUserLogin)
-
 	app.Get("/user/oauth2/:provider/login", goth_fiber.BeginAuthHandler)
 	app.Get("/user/oauth2/:provider/login/callback", oauth.GothicCallback)
 }

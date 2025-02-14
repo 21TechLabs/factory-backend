@@ -7,9 +7,10 @@ import (
 	"github.com/21TechLabs/factory-be/models"
 	"github.com/21TechLabs/factory-be/utils"
 	"github.com/gofiber/fiber/v2"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
-func SetLoginTokenAndSendResponse(ctx *fiber.Ctx, user models.User, passwordResetToekn bool) error {
+func SetLoginTokenAndSendResponse(ctx *fiber.Ctx, user models.User, allowPasswordAndResetToken bool) error {
 	if len(user.Email) == 0 {
 		log.Default().Printf("Failed to fetch user \"%v\" because token does not exists!", user.Email)
 		ctx.Cookie(&fiber.Cookie{
@@ -39,9 +40,26 @@ func SetLoginTokenAndSendResponse(ctx *fiber.Ctx, user models.User, passwordRese
 		Secure:   true,
 	})
 
-	return ctx.Status(200).JSON(fiber.Map{
+	appCode := ctx.Query("appCode")
+
+	var res = fiber.Map{
 		"token":   token,
-		"user":    user.GetDetails(passwordResetToekn),
+		"user":    user.GetDetails(allowPasswordAndResetToken),
 		"success": true,
-	})
+	}
+
+	if len(appCode) > 0 {
+		subscription, err := user.GetActiveAppSubscriptionByAppCode(appCode)
+
+		if err != nil {
+			if err != mongo.ErrNoDocuments {
+				log.Printf("Failed to fetch product with app code \"%v\" because an error occured: %v", appCode, err.Error())
+				return utils.ErrorResponse(ctx, fiber.StatusBadRequest, err.Error())
+			}
+		} else {
+			res["subscription"] = subscription
+		}
+	}
+
+	return ctx.Status(200).JSON(res)
 }

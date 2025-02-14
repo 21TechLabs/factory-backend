@@ -38,6 +38,7 @@ func main() {
 	routes.SetupUser(App)
 	routes.SetupOAuth(App)
 	routes.SetupPayments(App)
+	routes.SetupProduct(App)
 
 	// payments.SeedProductData()
 

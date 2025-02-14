@@ -19,6 +19,7 @@ var razorpayClient *razorpay.Client
 func init() {
 	utils.LoadEnv()
 	razorpayClient = razorpay.NewClient(utils.GetEnv("RAZORPAY_KEY_ID", false), utils.GetEnv("RAZORPAY_KEY_SECRET", false))
+	razorpayClient.SetTimeout(3)
 }
 
 func (sub *Razorpay) CreatePayment(productPlan ProductPlans, planIdx int) (UserSubscription, error) {
@@ -175,6 +176,7 @@ func (s *Razorpay) VerifyWebhookSignature(c *fiber.Ctx) error {
 
 func (s *Razorpay) GetOrderIdFromWebhookRequest(body []byte) (string, error) {
 	var data RazorpaySubsctiptionWebhook
+	fmt.Println(string(body))
 	if err := json.Unmarshal(body, &data); err != nil {
 		log.Printf("Payment gateway create error -- Get Order Id from Webhook Request controller.payments.GetOrderIdFromWebhookRequest.razorpay: %v", err)
 		return "", err

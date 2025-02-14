@@ -10,6 +10,7 @@ import (
 	"github.com/21TechLabs/factory-be/models/payments"
 	"github.com/21TechLabs/factory-be/utils"
 	"github.com/gofiber/fiber/v2"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 func CreatePayment(c *fiber.Ctx) error {
@@ -53,8 +54,10 @@ func CreatePayment(c *fiber.Ctx) error {
 	userSubscription, err := currentUser.GetActiveAppSubscriptionByAppCode(product.AppCode)
 
 	if err != nil {
-		log.Printf("Payment gateway create error -- GetActiveAppSubscriptionByAppCode controller.payments.CreatePayment: %v", err)
-		return utils.ErrorResponse(c, fiber.StatusBadRequest, err.Error())
+		if err != mongo.ErrNoDocuments {
+			log.Printf("Payment gateway create error -- GetActiveAppSubscriptionByAppCode controller.payments.CreatePayment: %v", err)
+			return utils.ErrorResponse(c, fiber.StatusBadRequest, err.Error())
+		}
 	}
 
 	if !userSubscription.ID.IsZero() {

@@ -131,11 +131,14 @@ func (u *User) GetDetails(allowPasswordResetToken bool) User {
 		Email:           u.Email,
 		ProfilePicURI:   u.ProfilePicURI,
 		EmailVerified:   u.EmailVerified,
-		Password:        u.Password,
 		OptedInForEmail: u.OptedInForEmail,
+		CoinBalance:     u.CoinBalance,
 	}
 
+	usr.ID = u.ID
+
 	if allowPasswordResetToken {
+		usr.Password = u.Password
 		usr.PasswordResetToken = u.PasswordResetToken
 	}
 
