@@ -17,6 +17,10 @@ func SetupUser(app *fiber.App) {
 		return &dto.UserLoginDto{}
 	}), controllers.UserLogin)
 
+	app.Patch("/user/update", middleware.SchemaValidatorMiddleware(func() interface{} {
+		return &dto.UserUpdateDto{}
+	}), middleware.UserAuthMiddleware, controllers.UserUpdateDto)
+
 	app.Post("/user/login/verify", middleware.UserAuthMiddleware, controllers.UserLoginVerify)
 
 	app.Get("/user/reset-password", controllers.UserRequestPasswordResetLink)

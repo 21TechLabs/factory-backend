@@ -102,8 +102,8 @@ type RazorpayPaymentCard struct {
 	Issuer        string `json:"issuer"`
 	International bool   `json:"international"`
 	EMI           bool   `json:"emi"`
-	ExpiryMonth   int    `json:"expiry_month"`
-	ExpiryYear    int    `json:"expiry_year"`
+	ExpiryMonth   any    `json:"expiry_month"`
+	ExpiryYear    any    `json:"expiry_year"`
 }
 
 type RazorpayWebhookPayload struct {

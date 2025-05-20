@@ -41,6 +41,36 @@ func UserCreate(role string) func(*fiber.Ctx) error {
 	}
 }
 
+func UserUpdateDto(c *fiber.Ctx) error {
+	body := c.Body()
+
+	parsedBody := dto.UserUpdateDto{}
+
+	if err := json.Unmarshal(body, &parsedBody); err != nil {
+		return utils.ErrorResponse(c, fiber.StatusBadRequest, err.Error())
+	}
+
+	currentUser, ok := c.Locals("user").(models.User)
+
+	if !ok {
+		return utils.ErrorResponse(c, fiber.StatusBadRequest, "User not found")
+	}
+
+	currentUser.Name = parsedBody.Name
+	// currentUser.Email = parsedBody.Email
+
+	err := currentUser.Update()
+
+	if err != nil {
+		return utils.ErrorResponse(c, fiber.StatusBadRequest, err.Error())
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"success": true,
+		"user":    currentUser.GetDetails(false),
+	})
+}
+
 func UserPasswordUpdate(c *fiber.Ctx) error {
 	body := c.Body()
 

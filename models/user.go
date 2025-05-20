@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"crypto/sha512"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"log"
 	"math/big"
@@ -174,6 +175,17 @@ func (u *User) SendEmailVerifyEmail() error {
 	}
 
 	return nil
+}
+
+func (u *User) Update() error {
+
+	var coll = mgm.Coll(&User{})
+
+	if coll == nil {
+		return errors.New("failed to get collection")
+	}
+
+	return coll.Update(u, &options.UpdateOptions{})
 }
 
 func (u *User) sendPasswordResetEmail(token string) error {
