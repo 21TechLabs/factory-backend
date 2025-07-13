@@ -31,8 +31,11 @@ func main() {
 	var App *fiber.App = fiber.New()
 
 	App.Use(cors.New(cors.Config{
-		AllowOrigins:     utils.GetEnv("CORS_URLS", false),
 		AllowCredentials: true,
+		AllowOriginsFunc: func(origin string) bool {
+			whitelistOrigins := utils.GetEnv("CORS_URLS", false)
+			return utils.IsValidOrigin(origin, whitelistOrigins)
+		},
 	}))
 
 	routes.SetupUser(App)
