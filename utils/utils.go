@@ -7,7 +7,8 @@ import (
 	"fmt"
 	"os"
 	"strings"
-
+	"regexp"
+	
 	"github.com/gofiber/fiber/v2"
 	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -89,3 +90,28 @@ func ValidateHeaderHMACSha256(body []byte, secret string, signature string) bool
 	dataHmac := hmac.Sum(nil)
 	return signature == hex.EncodeToString(dataHmac)
 }
+
+
+func IsValidOrigin(origin, whitelistOrigins string) bool {
+	if origin == "" {
+		return false
+	}
+
+	whitelist := strings.Split(whitelistOrigins, ",")
+	for _, whitelistedOrigin := range whitelist {
+		fmt.Println("Checking against whitelisted origin:", whitelistedOrigin)
+		stringMatchRegex, err := regexp.MatchString(whitelistedOrigin, origin)
+
+		if err != nil {
+			log.Warnf("Error matching origin %s with regex %s: %v", origin)
+			continue
+		}
+
+		if strings.TrimSpace(whitelistedOrigin) == "*" || stringMatchRegex {
+			return true
+		}
+	}
+
+	return false
+}
+
