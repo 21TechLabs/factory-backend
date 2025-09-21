@@ -1,24 +1,19 @@
 package middleware
 
 import (
-	"encoding/json"
-
+	"github.com/21TechLabs/musiclms-backend/utils"
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
 )
 
-func SchemaValidatorMiddleware(schemaFunc func() interface{}) fiber.Handler {
+func (m *Middleware) SchemaValidatorMiddleware(schemaFunc func() interface{}) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		body := c.Body()
+
 		schema := schemaFunc()
+		var err error
 
-		err := json.Unmarshal(body, &schema)
-
-		if err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"error":   err.Error(),
-				"success": false,
-			})
+		if err = c.BodyParser(schema); err != nil {
+			return utils.ErrorResponse(c, fiber.StatusBadRequest, "Invalid request body: "+err.Error())
 		}
 
 		validate := validator.New()
@@ -26,10 +21,7 @@ func SchemaValidatorMiddleware(schemaFunc func() interface{}) fiber.Handler {
 		err = validate.Struct(schema)
 
 		if err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"error":   err.Error(),
-				"success": false,
-			})
+			return utils.ErrorResponse(c, fiber.StatusBadRequest, "Validation failed: "+err.Error())
 		}
 
 		return c.Next()

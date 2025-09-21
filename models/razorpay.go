@@ -1,4 +1,4 @@
-package payments
+package models
 
 import (
 	"encoding/json"
@@ -7,11 +7,9 @@ import (
 	"log"
 	"time"
 
-	"github.com/21TechLabs/factory-be/utils"
+	"github.com/21TechLabs/musiclms-backend/utils"
 	"github.com/gofiber/fiber/v2"
-	"github.com/kamva/mgm/v3"
 	"github.com/razorpay/razorpay-go"
-	"go.mongodb.org/mongo-driver/bson"
 )
 
 var razorpayClient *razorpay.Client
@@ -22,7 +20,7 @@ func init() {
 	razorpayClient.SetTimeout(3)
 }
 
-func (sub *Razorpay) CreatePayment(productPlan ProductPlans, planIdx int) (UserSubscription, error) {
+func (sub *Razorpay) CreatePayment(uss *UserSubscriptionStore, productPlan ProductPlan, planIdx int) (UserSubscription, error) {
 	if planIdx >= len(productPlan.Subscriptions) || planIdx < 0 {
 		log.Printf("Payment gateway razorpay.CreatePayment error: %v", "Plan index out of range")
 		return UserSubscription{}, errors.New("plan index out of range")
@@ -62,21 +60,21 @@ func (sub *Razorpay) CreatePayment(productPlan ProductPlans, planIdx int) (UserS
 	}
 
 	var userSubscription = UserSubscription{
-		UserId:                   sub.UserId,
+		UserID:                   sub.UserId,
 		Plan:                     plan.Name,
 		Status:                   razorpaySubscription.Status,
 		PlanLevel:                plan.Level,
 		SubscriptionTenureInDays: plan.ExpiresAfterDayCount,
-		PaymentId:                map[string]string{PaymentGatewaysList.Razorpay: razorpaySubscription.ID},
+		PaymentId:                utils.JSONMap{PaymentGatewaysList.Razorpay: razorpaySubscription.ID},
 		AppCode:                  productPlan.AppCode,
 		TokenReward:              plan.TokenRewardEveryRenewal,
 		HasExpired:               false,
-		ExtraOptions: map[string]string{
+		ExtraOptions: utils.JSONMap{
 			"rpay_redirect_url": razorpaySubscription.ShortURL,
 		},
 		PaymentMethod: PaymentGatewaysList.Razorpay,
 	}
-	userSubscription.Save(false)
+	uss.Save(&userSubscription, false)
 
 	return userSubscription, nil
 }
@@ -93,7 +91,7 @@ func (s *Razorpay) GetUserSubscription() (interface{}, error) {
 	return UserSubscription{}, nil
 }
 
-func (s *Razorpay) UpdatePaymentStatus(subscriptionId string) (UserSubscription, error) {
+func (s *Razorpay) UpdatePaymentStatus(uss *UserSubscriptionStore, subscriptionId string) (UserSubscription, error) {
 	// fetch subscription by order id
 	body, err := razorpayClient.Subscription.Fetch(subscriptionId, nil, nil)
 
@@ -117,14 +115,12 @@ func (s *Razorpay) UpdatePaymentStatus(subscriptionId string) (UserSubscription,
 
 	var userSubscription UserSubscription
 
-	var userSubColl = mgm.Coll(&UserSubscription{})
-	if err := userSubColl.First(bson.M{"paymentId." + PaymentGatewaysList.Razorpay: subscriptionId}, &userSubscription); err != nil {
-		log.Println("Payment gateway update error razorpay.UpdatePaymentStatus: ", err)
-		return UserSubscription{}, fmt.Errorf("failed to update Razorpay subscription: %w", err)
-	}
+	var userSubColl = uss.DB.Model(&UserSubscription{})
 
-	if userSubscription.ID.IsZero() {
-		return UserSubscription{}, errors.New("subscription not found")
+	result := userSubColl.Where("payment_id @> ?", fmt.Sprintf("{\"%s\": \"%s\"}", PaymentGatewaysList.Razorpay, subscriptionId)).First(&userSubscription)
+	if result.Error != nil {
+		log.Println("Payment gateway update error razorpay.UpdatePaymentStatus: ", result.Error)
+		return UserSubscription{}, fmt.Errorf("failed to update Razorpay subscription: %w", result.Error)
 	}
 
 	userSubscription.SubscriptionStartsAt = time.Unix(razorpaySubscriptionWebhook.StartAt, 0)
@@ -133,10 +129,10 @@ func (s *Razorpay) UpdatePaymentStatus(subscriptionId string) (UserSubscription,
 	switch razorpaySubscriptionWebhook.Status {
 	case SubscriptionStatusActive:
 		userSubscription.Status = SubscriptionStatusActive
+		userSubscription.HasExpired = false
 		userSubscription.SubscriptionStartsAt = time.Unix(razorpaySubscriptionWebhook.CurrentStart, 0)
 		userSubscription.ReSubscribeOn = time.Unix(razorpaySubscriptionWebhook.CurrentStart, 0)
 		userSubscription.SubscriptionEndsAt = time.Unix(razorpaySubscriptionWebhook.CurrentEnd, 0)
-		userSubscription.HasExpired = false
 	case SubscriptionStatusCompleted:
 		userSubscription.Status = SubscriptionStatusCompleted
 		userSubscription.HasExpired = false
@@ -157,7 +153,7 @@ func (s *Razorpay) UpdatePaymentStatus(subscriptionId string) (UserSubscription,
 		userSubscription.HasExpired = true
 	}
 
-	userSubscription.Save(true)
+	uss.Save(&userSubscription, true)
 
 	return UserSubscription{}, nil
 }
@@ -184,20 +180,21 @@ func (s *Razorpay) GetOrderIdFromWebhookRequest(body []byte) (string, error) {
 	return data.Payload.Subscription.Entity.ID, nil
 }
 
-func (s *Razorpay) SetUserId(userId string) {
+func (s *Razorpay) SetUserId(userId uint) {
 	s.UserId = userId
 }
 
-func (s *Razorpay) SetUserViaOrderId(orderId string) error {
-	var userSubColl = mgm.Coll(&UserSubscription{})
+func (s *Razorpay) SetUserViaOrderId(uss *UserSubscriptionStore, orderId string) error {
+	var userSubColl = uss.DB.Model(&UserSubscription{})
 
 	var userSubscription UserSubscription
 
-	if err := userSubColl.First(bson.M{"paymentId." + PaymentGatewaysList.Razorpay: orderId}, &userSubscription); err != nil {
-		log.Printf("Payment gateway create error -- Get User Subscription controller.payments.SetUserViaOrderId.razorpay: %v", err)
-		return err
+	result := userSubColl.Where("payment_id @> ?", fmt.Sprintf("{\"%s\": \"%s\"}", PaymentGatewaysList.Razorpay, orderId)).First(&userSubscription)
+	if result.Error != nil {
+		log.Printf("Payment gateway create error -- Get User Subscription controller.payments.SetUserViaOrderId.razorpay: %v", result.Error)
+		return result.Error
 	}
 
-	s.SetUserId(userSubscription.UserId)
+	s.SetUserId(userSubscription.UserID)
 	return nil
 }

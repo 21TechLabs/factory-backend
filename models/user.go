@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"crypto/sha512"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"log"
 	"math/big"
@@ -12,61 +11,74 @@ import (
 	"strings"
 	"time"
 
-	"github.com/21TechLabs/factory-be/dto"
-	"github.com/21TechLabs/factory-be/models/payments"
-	"github.com/21TechLabs/factory-be/notifications"
-	"github.com/21TechLabs/factory-be/notifications/templates"
-	"github.com/21TechLabs/factory-be/utils"
-	"github.com/kamva/mgm/v3"
+	"github.com/21TechLabs/musiclms-backend/dto"
+	"github.com/21TechLabs/musiclms-backend/notifications"
+	"github.com/21TechLabs/musiclms-backend/notifications/templates"
+	"github.com/21TechLabs/musiclms-backend/utils"
 	"github.com/kataras/jwt"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"gorm.io/gorm"
 )
 
-type _Role struct {
-	Admin   string
-	Student string
-	Client  string
+type UserRole int
+
+const (
+	UserRoleAdmin  UserRole = iota + 1 // 1
+	UserRoleClient UserRole = iota + 1 // 2
+	// add your userroles here
+)
+
+type UserStore struct {
+	DB        *gorm.DB
+	FileStore *FileStore
 }
 
-var Roles = _Role{
-	Admin:   "admin",
-	Student: "student",
-	Client:  "client",
+func NewUserStore(db *gorm.DB, fs *FileStore) *UserStore {
+	return &UserStore{DB: db, FileStore: fs}
 }
 
 type User struct {
-	mgm.DefaultModel       `bson:",inline"`
-	Name                   string    `bson:"name" json:"name"`                                     // User's name
-	Role                   string    `bson:"role" json:"role"`                                     // User's role (e.g. "admin", "student")
-	Email                  string    `bson:"email" json:"email"`                                   // User's email address
-	ProfilePicURI          string    `bson:"profilePic" json:"profilePic"`                         // URI for the user's profile picture
-	EmailVerified          bool      `bson:"emailVerified" json:"emailVerified"`                   // Whether the user's email has been verified
-	EmailVerificationToken string    `bson:"emailVerificationToken" json:"emailVerificationToken"` // Token for email verification
-	Password               string    `bson:"password" json:"password"`                             // User's password (hashed)
-	PasswordResetToken     string    `bson:"passwordResetToken" json:"passwordResetToken"`         // Token for password reset
-	PasswordTries          int       `bson:"passwordTries" json:"passwordTries"`                   // Number of tries for password reset
-	OptedInForEmail        bool      `bson:"optedInForEmail" json:"optedInForEmail"`               // Whether the user has opted in for email alerts
-	AccountSuspended       bool      `bson:"accountSuspended" json:"accountSuspended"`             // Whether the account is suspended
-	AccountBlocked         bool      `bson:"accountBlocked" json:"accountBlocked"`                 // Whether the account is blocked
-	MarkedForDeletion      bool      `bson:"markedForDeletion" json:"markedForDeletion"`           // Whether the account is marked for deletion
-	DeleteAccountAfter     time.Time `bson:"deleteAccountAfter" json:"deleteAccountAfter"`         // Date/time after which the account will be deleted
-	AccountDeleted         bool      `bson:"accountDeleted" json:"accountDeleted"`                 // Whether the account is deleted4
-	AccountCreated         bool      `bson:"accountCreated" json:"accountCreated"`                 // Date/time when the account was created
-	CoinBalance            int64     `bson:"coinBalance" json:"coinBalance"`                       // User's coin balance
+	gorm.Model
+	ID                     uint               `gorm:"primaryKey;autoIncrement;column:id" json:"id"`
+	Name                   string             `gorm:"column:name" json:"name"`
+	Role                   UserRole           `gorm:"column:role" json:"role"`
+	Email                  string             `gorm:"column:email;uniqueIndex" json:"email"`
+	ProfilePicURI          string             `gorm:"column:profile_picture_url" json:"profilePicURI"`
+	EmailVerified          bool               `gorm:"column:email_verified" json:"emailVerified"`
+	EmailVerificationToken string             `gorm:"column:email_verification_token" json:"-"`
+	Password               string             `gorm:"column:password" json:"-"`
+	PasswordResetToken     string             `gorm:"column:password_reset_token" json:"-"`
+	PasswordTries          int                `gorm:"column:password_tries" json:"passwordTries"`
+	OptedInForEmail        bool               `gorm:"column:opted_in_for_email" json:"optedInForEmail"`
+	AccountSuspended       bool               `gorm:"column:account_suspended" json:"accountSuspended"`
+	AccountBlocked         bool               `gorm:"column:account_blocked" json:"accountBlocked"`
+	MarkedForDeletion      bool               `gorm:"column:marked_for_deletion" json:"markedForDeletion"`
+	DeleteAccountAfter     time.Time          `gorm:"column:delete_account_after" json:"deleteAccountAfter"`
+	AccountDeleted         bool               `gorm:"column:account_deleted" json:"accountDeleted"`
+	AccountCreated         bool               `gorm:"column:account_created" json:"accountCreated"`
+	CoinBalance            int64              `gorm:"column:coin_balance" json:"coinBalance"`
+	RedirectURL            string             `gorm:"column:redirect_url" json:"redirectUrl"`
+	OnboardingDone         bool               `gorm:"column:onboarding_done" json:"onboardingDone"`
+	UserSubscriptions      []UserSubscription `json:"-" gorm:"foreignKey:UserID;references:ID"`
+	UserSubscription       *UserSubscription  `json:"userSubscription"`
+	Files                  []File             `gorm:"foreignKey:UserID;references:ID" json:"files"`
 }
 
-func UserCreate(user dto.UserCreateDto, role string) (User, error) {
+func (User) TableName() string {
+	return "users"
+}
 
-	var ctx = mgm.Ctx()
-	userCount, err := mgm.Coll(&User{}).CountDocuments(ctx, bson.M{
-		"email": user.Email,
-		"role":  Roles.Admin,
-	})
+func (us *UserStore) UserCreate(user dto.UserCreateDto, isSubdomain bool) (User, error) {
 
-	if err != nil {
-		if err.Error() != "mongo: no documents in result" {
-			return User{}, err
+	role := UserRoleClient
+
+	var OnboardingDone = false
+
+	var userCount int64
+	result := us.DB.Model(&User{}).Where("email = ?", user.Email).Count(&userCount)
+
+	if result.Error != nil {
+		if result.Error != gorm.ErrRecordNotFound {
+			return User{}, result.Error
 		}
 	}
 
@@ -80,8 +92,9 @@ func UserCreate(user dto.UserCreateDto, role string) (User, error) {
 		Email:           user.Email,
 		OptedInForEmail: true,
 		AccountCreated:  true,
+		OnboardingDone:  OnboardingDone,
 	}
-
+	var err error
 	newUser.Password, err = SaltPassword(user.Password, "")
 
 	if err != nil {
@@ -89,21 +102,29 @@ func UserCreate(user dto.UserCreateDto, role string) (User, error) {
 	}
 
 	// send email verification msg
-	err = newUser.SendEmailVerifyEmail()
+	err = us.SendEmailVerifyEmail(&newUser)
 	if err != nil {
 		return User{}, err
 	}
 
-	err = mgm.Coll(&newUser).Create(&newUser)
+	result = us.DB.Create(&newUser)
 
-	if err != nil {
-		return User{}, err
+	if result.Error != nil {
+		return User{}, result.Error
 	}
 
 	return newUser, nil
 }
 
-func JwtTokenVerifyAndGetUser(token string, secretKey []byte) (User, error) {
+func (user *User) UserIsAdmin() bool {
+	return user.Role == UserRoleAdmin
+}
+
+func (user *User) UserIsClient() bool {
+	return user.Role == UserRoleClient
+}
+
+func (uc *UserStore) JwtTokenVerifyAndGetUser(token string, secretKey []byte) (User, error) {
 	verifiedToken, err := jwt.Verify(jwt.HS256, secretKey, []byte(token))
 	if err != nil {
 		return User{}, err
@@ -116,7 +137,7 @@ func JwtTokenVerifyAndGetUser(token string, secretKey []byte) (User, error) {
 	}
 
 	var user User
-	user, err = UserGetByEmail(userPD.Email)
+	user, err = uc.UserGetByEmail(userPD.Email)
 
 	if err != nil {
 		return User{}, err
@@ -125,28 +146,11 @@ func JwtTokenVerifyAndGetUser(token string, secretKey []byte) (User, error) {
 	return user, nil
 }
 
-func (u *User) GetDetails(allowPasswordResetToken bool) User {
-	usr := User{
-		Name:            u.Name,
-		Role:            u.Role,
-		Email:           u.Email,
-		ProfilePicURI:   u.ProfilePicURI,
-		EmailVerified:   u.EmailVerified,
-		OptedInForEmail: u.OptedInForEmail,
-		CoinBalance:     u.CoinBalance,
-	}
-
-	usr.ID = u.ID
-
-	if allowPasswordResetToken {
-		usr.Password = u.Password
-		usr.PasswordResetToken = u.PasswordResetToken
-	}
-
-	return usr
+func (us *UserStore) GetDetails(u *User, allowPasswordResetToken bool) User {
+	return *u
 }
 
-func (u *User) SendEmailVerifyEmail() error {
+func (us *UserStore) SendEmailVerifyEmail(u *User) error {
 	// generate token
 	token, err := GetAlphaNumString(64, "alnum")
 	if err != nil {
@@ -177,18 +181,27 @@ func (u *User) SendEmailVerifyEmail() error {
 	return nil
 }
 
-func (u *User) Update() error {
+func (us *UserStore) Update(u *User) error {
 
-	var coll = mgm.Coll(&User{})
+	var model = us.DB.Model(&User{})
 
-	if coll == nil {
-		return errors.New("failed to get collection")
+	result := model.Where("id = ?", u.ID).Updates(u)
+
+	if result.Error != nil {
+		if result.Error == gorm.ErrRecordNotFound {
+			return fmt.Errorf("user with id %d not found", u.ID)
+		}
+		return fmt.Errorf("failed to update user with id %d: %v", u.ID, result.Error)
 	}
 
-	return coll.Update(u, &options.UpdateOptions{})
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("no user found with id %d", u.ID)
+	}
+
+	return nil
 }
 
-func (u *User) sendPasswordResetEmail(token string) error {
+func (us *UserStore) sendPasswordResetEmail(u *User, token string) error {
 	var frontendURL = utils.GetEnv("FRONTEND_URL", false)
 
 	var req = notifications.NewRequest([]string{u.Email}, fmt.Sprintf("%s, your password reset email.", u.Name), fmt.Sprintf("to reset the password please visit %s/reset-password?email=%s&&token=%s", frontendURL, u.Email, token))
@@ -209,19 +222,16 @@ func (u *User) sendPasswordResetEmail(token string) error {
 	return nil
 }
 
-func UserGetById(UserId string) (User, error) {
+func (us *UserStore) UserGetById(id uint) (User, error) {
 	var userFromDb User = User{}
 
-	cur := mgm.Coll(&User{}).First(bson.M{
-		"_id": UserId,
-	}, &userFromDb)
+	result := us.DB.Model(&User{}).Where("id = ?", id).First(&userFromDb)
 
-	if cur.Error() != "" {
-		if cur.Error() == "mongo: no documents in result" {
+	if result.Error != nil {
+		if result.Error == gorm.ErrRecordNotFound {
 			return User{}, nil
 		}
-
-		return User{}, fmt.Errorf("failed to find the user user with id: %s \n %s", UserId, cur.Error())
+		return User{}, fmt.Errorf("failed to find the user with id: %d \n %s", id, result.Error.Error())
 	}
 
 	return userFromDb, nil
@@ -238,9 +248,12 @@ func GetRandomNumber(limit int64) (int64, error) {
 func GetAlphaNumString(length int, stringContents string) (string, error) {
 	var alphaNum = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 
-	if stringContents == "alpha" {
+	switch stringContents {
+	case "alphanum":
+		alphaNum = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+	case "alpha":
 		alphaNum = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
-	} else if stringContents == "num" {
+	case "num":
 		alphaNum = "0123456789"
 	}
 
@@ -284,7 +297,7 @@ func SaltPassword(password string, salt string) (string, error) {
 	return password, nil
 }
 
-func (user *User) ComparePassword(password string) bool {
+func (us *UserStore) ComparePassword(user *User, password string) bool {
 	var password_and_salt []string = strings.Split(user.Password, ".")
 
 	var current_passwd = password_and_salt[0]
@@ -307,7 +320,7 @@ func (user *User) ComparePassword(password string) bool {
 	return current_passwd == to_compare
 }
 
-func (user *User) GeneratePasswordResetToken(sendEmail bool) (token string, err error) {
+func (us *UserStore) GeneratePasswordResetToken(user *User, sendEmail bool) (token string, err error) {
 	resetToken, err := GetAlphaNumString(56, "alphanum")
 
 	if err != nil {
@@ -320,15 +333,14 @@ func (user *User) GeneratePasswordResetToken(sendEmail bool) (token string, err 
 		return "", err
 	}
 
-	ctx := mgm.Ctx()
-	_, err = mgm.Coll(user).UpdateOne(ctx, bson.M{"_id": user.ID}, bson.M{"$set": user})
+	err = us.Update(user)
 
 	if err != nil {
 		return "", err
 	}
 
 	if sendEmail {
-		err = user.sendPasswordResetEmail(resetToken)
+		err = us.sendPasswordResetEmail(user, resetToken)
 		if err != nil {
 			return "", err
 		}
@@ -337,7 +349,7 @@ func (user *User) GeneratePasswordResetToken(sendEmail bool) (token string, err 
 	return resetToken, err
 }
 
-func (user *User) CompareAndUpdatePasswordWithToken(token string, password string) error {
+func (us *UserStore) CompareAndUpdatePasswordWithToken(user *User, token string, password string) error {
 	var token_and_salt []string = strings.Split(user.PasswordResetToken, ".")
 
 	var salt = token_and_salt[1]
@@ -360,8 +372,7 @@ func (user *User) CompareAndUpdatePasswordWithToken(token string, password strin
 
 	user.PasswordResetToken = ""
 
-	ctx := mgm.Ctx()
-	_, err = mgm.Coll(user).UpdateOne(ctx, bson.M{"_id": user.ID}, bson.M{"$set": user})
+	err = us.Update(user)
 
 	if err != nil {
 		return err
@@ -370,32 +381,22 @@ func (user *User) CompareAndUpdatePasswordWithToken(token string, password strin
 	return nil
 }
 
-func UserGetByEmail(email string) (User, error) {
-	ctx := mgm.Ctx()
-	cursor, err := mgm.Coll(&User{}).Find(ctx, bson.M{"email": email, "accountDeleted": false, "markedForDeletion": false})
+func (us *UserStore) UserGetByEmail(email string) (User, error) {
+	// cursor, err := mgm.Coll(&User{}).Find(ctx, map[string]interface{}{"email": email, "accountDeleted": false, "markedForDeletion": false})
+	var user User
 
-	if err != nil {
-		return User{}, err
+	result := us.DB.Model(&User{}).Where("email = ?", email).First(&user)
+
+	if result.Error != nil {
+		return User{}, result.Error
 	}
 
-	var users []User
-
-	err = cursor.All(ctx, &users)
-
-	if err != nil {
-		return User{}, err
-	}
-
-	if len(users) == 0 {
-		return User{}, fmt.Errorf("not found")
-	}
-
-	return users[0], nil
+	return user, nil
 
 }
 
-func (cdu *User) JwtTokenGet(expiryTime time.Time, secretKey []byte) (string, error) {
-	claim := *cdu
+func (user *User) JwtTokenGet(expiryTime time.Time, secretKey []byte) (string, error) {
+	claim := *user
 
 	claim.PasswordResetToken = ""
 	claim.EmailVerificationToken = ""
@@ -410,8 +411,8 @@ func (cdu *User) JwtTokenGet(expiryTime time.Time, secretKey []byte) (string, er
 	return string(token), nil
 }
 
-func UserVerifyEmailToken(email string, token string) (User, error) {
-	user, err := UserGetByEmail(email)
+func (us *UserStore) UserVerifyEmailToken(email string, token string) (User, error) {
+	user, err := us.UserGetByEmail(email)
 
 	if err != nil {
 		return user, err
@@ -424,8 +425,7 @@ func UserVerifyEmailToken(email string, token string) (User, error) {
 	user.EmailVerified = true
 	user.EmailVerificationToken = ""
 
-	ctx := mgm.Ctx()
-	_, err = mgm.Coll(&User{}).UpdateOne(ctx, bson.M{"_id": user.ID}, bson.M{"$set": user})
+	err = us.Update(&user)
 
 	if err != nil {
 		return user, err
@@ -434,16 +434,13 @@ func UserVerifyEmailToken(email string, token string) (User, error) {
 	return user, nil
 }
 
-func (user *User) MarkAccountForDeletion() error {
+func (us *UserStore) MarkAccountForDeletion(user *User) error {
 	user.MarkedForDeletion = true
 
-	ctx := mgm.Ctx()
-	_, err := mgm.Coll(user).UpdateOne(ctx, bson.M{"_id": user.ID}, bson.M{
-		"$set": bson.M{
-			"markedForDeletion":  true,
-			"deleteAccountAfter": time.Now().Add(time.Hour * 24 * 30),
-		},
-	})
+	user.DeleteAccountAfter = time.Now().Add(time.Hour * 24 * 30)
+	user.MarkedForDeletion = true
+
+	err := us.Update(user)
 
 	if err != nil {
 		return err
@@ -452,54 +449,17 @@ func (user *User) MarkAccountForDeletion() error {
 	return nil
 }
 
-func (user *User) UploadFile(data []FileUpload) ([]File, error) {
-
-	// step 1: Upload to S3 and create a store data in files collection
-	// step 2: Insert everything to the mongodb mapping it to the user
-	var buckerName = utils.GetEnv("S3_BUCKET_NAME", false)
-	var endPointUrl = utils.GetEnv("AWS_ENDPOINT_URL", false)
-
-	var files []File
-
-	for _, file := range data {
-		uploadOutput, err := utils.S3UploadFile(buckerName, file.Title, &file.File)
-
-		if err != nil {
-			return files, err
-		}
-
-		var location = uploadOutput.Location
-
-		location = strings.Replace(location, "https://", "", 1)
-		location = strings.Replace(location, endPointUrl, "", 1)
-
-		var fileObj = File{
-			UserId:      user.ID.Hex(),
-			Name:        file.Title,
-			Type:        file.File.Header.Get("Content-Type"),
-			RelativeURL: location,
-		}
-
-		err = mgm.Coll(&fileObj).Create(&fileObj)
-
-		if err != nil {
-			return files, err
-		}
-
-		files = append(files, fileObj)
-	}
-
-	return files, nil
+func (us *UserStore) UploadFile(user *User, data []FileUpload) ([]File, error) {
+	return us.FileStore.UploadFile(data, user.ID)
 }
 
-func UserLogin(loginDto dto.UserLoginDto) (User, error) {
-	user, err := UserGetByEmail(loginDto.Email)
+func (us *UserStore) UserLogin(loginDto dto.UserLoginDto) (User, error) {
+	user, err := us.UserGetByEmail(loginDto.Email)
 
 	if err != nil {
 		fmt.Fprintf(os.Stdout, "UserLogin Error: Failed to find user\n%v", err)
 		return user, err
 	}
-
 	if user.AccountBlocked {
 		fmt.Fprintln(os.Stdout, "UserLogin Error: Account Blocked!")
 		return user, fmt.Errorf("account blocked")
@@ -520,7 +480,7 @@ func UserLogin(loginDto dto.UserLoginDto) (User, error) {
 		return user, fmt.Errorf("account blocked")
 	}
 
-	isCorrectPassword := user.ComparePassword(loginDto.Password)
+	isCorrectPassword := us.ComparePassword(&user, loginDto.Password)
 
 	if !isCorrectPassword {
 
@@ -530,8 +490,7 @@ func UserLogin(loginDto dto.UserLoginDto) (User, error) {
 			user.AccountBlocked = true
 		}
 
-		ctx := mgm.Ctx()
-		_, err = mgm.Coll(&user).UpdateOne(ctx, bson.M{"_id": user.ID}, bson.M{"$set": user})
+		err = us.Update(&user)
 
 		if err != nil {
 			fmt.Fprintf(os.Stdout, "UserLogin Error: Failed to update user\n%v", err)
@@ -544,8 +503,7 @@ func UserLogin(loginDto dto.UserLoginDto) (User, error) {
 
 	user.PasswordTries = 0
 
-	ctx := mgm.Ctx()
-	_, err = mgm.Coll(&user).UpdateOne(ctx, bson.M{"_id": user.ID}, bson.M{"$set": user})
+	err = us.Update(&user)
 
 	if err != nil {
 		fmt.Fprintf(os.Stdout, "UserLogin Error: Failed to update user\n%v", err)
@@ -555,32 +513,32 @@ func UserLogin(loginDto dto.UserLoginDto) (User, error) {
 	return user, nil
 }
 
-func (user *User) GetActiveAppSubscriptionByAppCode(appCode string) (payments.UserSubscription, error) {
-	var subscriptionColl = mgm.Coll(&payments.UserSubscription{})
+func (us *UserStore) GetActiveAppSubscriptionByAppCode(user *User, appCode string) (UserSubscription, error) {
+	var model = us.DB.Model(&UserSubscription{})
 
-	res := subscriptionColl.FindOne(mgm.Ctx(), bson.M{
-		"appCode": appCode,
-		"userId":  user.ID.Hex(),
-		"status": bson.M{
-			"$in": []string{
-				string(payments.SubscriptionStatusActive),
-				string(payments.SubscriptionStatusCharged),
-				string(payments.SubscriptionStatusCompleted),
-			},
-		},
-	}, &options.FindOneOptions{})
+	var subscription UserSubscription
 
-	if res.Err() != nil {
-		return payments.UserSubscription{}, res.Err()
-	}
+	result := model.Where("app_code = ? AND user_id = ? AND status IN ?", appCode, user.ID, []string{
+		string(SubscriptionStatusActive),
+		string(SubscriptionStatusCharged),
+		string(SubscriptionStatusCompleted),
+	}).First(&subscription)
 
-	var subscription payments.UserSubscription
-
-	err := res.Decode(&subscription)
-
-	if err != nil {
-		return payments.UserSubscription{}, err
+	if result.Error != nil {
+		return UserSubscription{}, result.Error
 	}
 
 	return subscription, nil
+}
+
+func (us *UserStore) UserGetAllBy(filter map[string]interface{}, start, limit int) ([]User, error) {
+	var users []User
+
+	result := us.DB.Model(&User{}).Where(filter).Offset(start).Limit(limit).Find(&users)
+
+	if result.Error != nil {
+		return nil, fmt.Errorf("failed to find users: %v", result.Error)
+	}
+
+	return users, nil
 }

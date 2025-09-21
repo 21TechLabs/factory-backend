@@ -1,12 +1,12 @@
 package routes
 
 import (
-	"github.com/21TechLabs/factory-be/controllers"
-	"github.com/21TechLabs/factory-be/middleware"
+	"github.com/21TechLabs/musiclms-backend/app"
 	fiber "github.com/gofiber/fiber/v2"
 )
 
-func SetupFile(app *fiber.App) {
-	app.Post("/file", middleware.UserAuthMiddleware, controllers.FileUpload)
+func SetupFile(f *fiber.App, app *app.Application) {
+	f.Post("/file", app.Middleware.UserAuthMiddleware, app.FileController.FileUpload)
+	f.Get("/file/stream/:fileKey", app.FileController.FileStreamS3)
 
 }

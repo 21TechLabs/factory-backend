@@ -3,45 +3,52 @@ package controllers
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
+	"strings"
 	"time"
 
-	"github.com/21TechLabs/factory-be/dto"
-	"github.com/21TechLabs/factory-be/models"
-	"github.com/21TechLabs/factory-be/utils"
+	"github.com/21TechLabs/musiclms-backend/dto"
+	"github.com/21TechLabs/musiclms-backend/models"
+	"github.com/21TechLabs/musiclms-backend/utils"
 	"github.com/gofiber/fiber/v2"
-	"go.mongodb.org/mongo-driver/bson"
 )
 
-func UserCreate(role string) func(*fiber.Ctx) error {
-	return func(c *fiber.Ctx) error {
-		body := c.Body()
+type UserController struct {
+	Logger    *log.Logger
+	UserStore *models.UserStore
+}
 
-		usr := dto.UserCreateDto{}
-
-		err := json.Unmarshal(body, &usr)
-
-		if err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"error":   err.Error(),
-				"success": false,
-			})
-		}
-
-		user, err := models.UserCreate(usr, role)
-
-		if err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"error":   err.Error(),
-				"success": false,
-			})
-		}
-
-		return SetLoginTokenAndSendResponse(c, user, false)
+func NewUserController(logger *log.Logger, store *models.UserStore) *UserController {
+	return &UserController{
+		Logger:    logger,
+		UserStore: store,
 	}
 }
 
-func UserUpdateDto(c *fiber.Ctx) error {
+func (uc *UserController) UserCreate(c *fiber.Ctx) error {
+	body := c.Body()
+
+	usr := dto.UserCreateDto{}
+
+	err := json.Unmarshal(body, &usr)
+
+	if err != nil {
+		return utils.ErrorResponse(c, fiber.StatusBadRequest, err.Error())
+	}
+
+	var isSubdomain = len(strings.Split(c.Get("Origin"), ".")) == 3
+
+	user, err := uc.UserStore.UserCreate(usr, isSubdomain)
+
+	if err != nil {
+		return utils.ErrorResponse(c, fiber.StatusBadRequest, err.Error())
+	}
+
+	return SetLoginTokenAndSendResponse(c, user, false, uc.UserStore)
+}
+
+func (uc *UserController) UserUpdateDto(c *fiber.Ctx) error {
 	body := c.Body()
 
 	parsedBody := dto.UserUpdateDto{}
@@ -59,7 +66,7 @@ func UserUpdateDto(c *fiber.Ctx) error {
 	currentUser.Name = parsedBody.Name
 	// currentUser.Email = parsedBody.Email
 
-	err := currentUser.Update()
+	err := uc.UserStore.Update(&currentUser)
 
 	if err != nil {
 		return utils.ErrorResponse(c, fiber.StatusBadRequest, err.Error())
@@ -67,11 +74,11 @@ func UserUpdateDto(c *fiber.Ctx) error {
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"success": true,
-		"user":    currentUser.GetDetails(false),
+		"user":    uc.UserStore.GetDetails(&currentUser, false),
 	})
 }
 
-func UserPasswordUpdate(c *fiber.Ctx) error {
+func (uc *UserController) UserPasswordUpdate(c *fiber.Ctx) error {
 	body := c.Body()
 
 	parsedBody := dto.UserPasswordUpdateDto{}
@@ -82,13 +89,13 @@ func UserPasswordUpdate(c *fiber.Ctx) error {
 		return utils.ErrorResponse(c, fiber.StatusBadRequest, err.Error())
 	}
 
-	currentUser, err := models.UserGetByEmail(parsedBody.Email)
+	currentUser, err := uc.UserStore.UserGetByEmail(parsedBody.Email)
 
 	if err != nil {
 		return utils.ErrorResponse(c, fiber.StatusBadRequest, err.Error())
 	}
 
-	err = currentUser.CompareAndUpdatePasswordWithToken(parsedBody.Token, parsedBody.Password)
+	err = uc.UserStore.CompareAndUpdatePasswordWithToken(&currentUser, parsedBody.Token, parsedBody.Password)
 
 	if err != nil {
 		return utils.ErrorResponse(c, fiber.StatusBadRequest, err.Error())
@@ -99,11 +106,11 @@ func UserPasswordUpdate(c *fiber.Ctx) error {
 	})
 }
 
-func UserMarkForDeletion(c *fiber.Ctx) error {
+func (uc *UserController) UserMarkForDeletion(c *fiber.Ctx) error {
 
 	var currentUser = c.Locals("user").(models.User)
 
-	err := currentUser.MarkAccountForDeletion()
+	err := uc.UserStore.MarkAccountForDeletion(&currentUser)
 
 	if err != nil {
 		return utils.ErrorResponse(c, fiber.StatusBadRequest, err.Error())
@@ -112,36 +119,27 @@ func UserMarkForDeletion(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"message": "Account marked for deletion, account will be deleted in 30 days",
 		"success": true,
-		"user":    currentUser.GetDetails(false),
+		"user":    uc.UserStore.GetDetails(&currentUser, false),
 	})
 }
 
-func UserRequestPasswordResetLink(c *fiber.Ctx) error {
+func (uc *UserController) UserRequestPasswordResetLink(c *fiber.Ctx) error {
 	email := c.Query("email")
 
 	if email == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Email is required",
-			"success": false,
-		})
+		return utils.ErrorResponse(c, fiber.StatusBadRequest, "email is required")
 	}
 
-	user, err := models.UserGetByEmail(email)
+	user, err := uc.UserStore.UserGetByEmail(email)
 
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   err.Error(),
-			"success": false,
-		})
+		return utils.ErrorResponse(c, fiber.StatusBadRequest, "user not found")
 	}
 
-	token, err := user.GeneratePasswordResetToken(true)
+	token, err := uc.UserStore.GeneratePasswordResetToken(&user, true)
 
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   err.Error(),
-			"success": false,
-		})
+		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "failed to generate password reset token")
 	}
 
 	user.PasswordResetToken = token
@@ -151,7 +149,7 @@ func UserRequestPasswordResetLink(c *fiber.Ctx) error {
 	})
 }
 
-func UserVerifyEmailToken(c *fiber.Ctx) error {
+func (uc *UserController) UserVerifyEmailToken(c *fiber.Ctx) error {
 	token := c.Query("token")
 
 	if token == "" {
@@ -164,16 +162,16 @@ func UserVerifyEmailToken(c *fiber.Ctx) error {
 		return utils.ErrorResponse(c, fiber.StatusBadRequest, "email is required")
 	}
 
-	user, err := models.UserVerifyEmailToken(email, token)
+	user, err := uc.UserStore.UserVerifyEmailToken(email, token)
 
 	if err != nil {
 		return utils.ErrorResponse(c, fiber.StatusBadRequest, err.Error())
 	}
 
-	return SetLoginTokenAndSendResponse(c, user, false)
+	return SetLoginTokenAndSendResponse(c, user, false, uc.UserStore)
 }
 
-func UserLogin(c *fiber.Ctx) error {
+func (uc *UserController) UserLogin(c *fiber.Ctx) error {
 
 	body := c.Body()
 
@@ -183,31 +181,31 @@ func UserLogin(c *fiber.Ctx) error {
 
 	if err != nil {
 		fmt.Fprintf(os.Stdout, "UserLogin Error: Json Validation Failed.\n%v", err)
-		return c.Status(fiber.ErrBadRequest.Code).JSON(bson.M{
+		return c.Status(fiber.ErrBadRequest.Code).JSON(map[string]interface{}{
 			"success": false,
 			"message": "UserLogin Error: Json Validation Failed.",
 		})
 	}
 
-	user, err := models.UserLogin(loginBody)
+	user, err := uc.UserStore.UserLogin(loginBody)
 
 	if err != nil {
 		fmt.Fprintf(os.Stdout, "UserLogin Error: %v\n", err)
-		return c.Status(fiber.ErrBadRequest.Code).JSON(bson.M{
+		return c.Status(fiber.ErrBadRequest.Code).JSON(map[string]interface{}{
 			"success": false,
 			"message": err.Error(),
 		})
 	}
 
-	return SetLoginTokenAndSendResponse(c, user, false)
+	return SetLoginTokenAndSendResponse(c, user, false, uc.UserStore)
 }
 
-func UserLoginVerify(c *fiber.Ctx) error {
+func (uc *UserController) UserLoginVerify(c *fiber.Ctx) error {
 	var user = c.Locals("user").(models.User)
-	return SetLoginTokenAndSendResponse(c, user, false)
+	return SetLoginTokenAndSendResponse(c, user, false, uc.UserStore)
 }
 
-func UserLogout(c *fiber.Ctx) error {
+func (uc *UserController) UserLogout(c *fiber.Ctx) error {
 
 	c.Cookie(&fiber.Cookie{
 		Name:     "token",

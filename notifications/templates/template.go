@@ -4,8 +4,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/21TechLabs/factory-be/config"
-	"github.com/21TechLabs/factory-be/notifications"
+	"github.com/21TechLabs/musiclms-backend/config"
+	"github.com/21TechLabs/musiclms-backend/notifications"
 )
 
 func GenericParse(r *notifications.Request, template string, body interface{}) error {

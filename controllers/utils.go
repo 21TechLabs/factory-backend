@@ -4,13 +4,16 @@ import (
 	"log"
 	"time"
 
-	"github.com/21TechLabs/factory-be/models"
-	"github.com/21TechLabs/factory-be/utils"
+	"github.com/21TechLabs/musiclms-backend/models"
+	"github.com/21TechLabs/musiclms-backend/utils"
 	"github.com/gofiber/fiber/v2"
-	"go.mongodb.org/mongo-driver/mongo"
+	"gorm.io/gorm"
 )
 
-func SetLoginTokenAndSendResponse(ctx *fiber.Ctx, user models.User, allowPasswordAndResetToken bool) error {
+func SetLoginTokenAndSendResponse(ctx *fiber.Ctx, user models.User, allowPasswordAndResetToken bool, us *models.UserStore) error {
+
+	appCode := ctx.Query("appCode")
+
 	if len(user.Email) == 0 {
 		log.Default().Printf("Failed to fetch user \"%v\" because token does not exists!", user.Email)
 		ctx.Cookie(&fiber.Cookie{
@@ -40,19 +43,17 @@ func SetLoginTokenAndSendResponse(ctx *fiber.Ctx, user models.User, allowPasswor
 		Secure:   true,
 	})
 
-	appCode := ctx.Query("appCode")
-
 	var res = fiber.Map{
 		"token":   token,
-		"user":    user.GetDetails(allowPasswordAndResetToken),
+		"user":    us.GetDetails(&user, allowPasswordAndResetToken),
 		"success": true,
 	}
 
 	if len(appCode) > 0 {
-		subscription, err := user.GetActiveAppSubscriptionByAppCode(appCode)
+		subscription, err := us.GetActiveAppSubscriptionByAppCode(&user, appCode)
 
 		if err != nil {
-			if err != mongo.ErrNoDocuments {
+			if err != gorm.ErrRecordNotFound {
 				log.Printf("Failed to fetch product with app code \"%v\" because an error occured: %v", appCode, err.Error())
 				return utils.ErrorResponse(ctx, fiber.StatusBadRequest, err.Error())
 			}

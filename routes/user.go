@@ -1,39 +1,37 @@
 package routes
 
 import (
-	"github.com/21TechLabs/factory-be/controllers"
-	"github.com/21TechLabs/factory-be/dto"
-	"github.com/21TechLabs/factory-be/middleware"
-	"github.com/21TechLabs/factory-be/models"
+	"github.com/21TechLabs/musiclms-backend/app"
+	"github.com/21TechLabs/musiclms-backend/dto"
 	fiber "github.com/gofiber/fiber/v2"
 )
 
-func SetupUser(app *fiber.App) {
-	app.Post("/user/create", middleware.SchemaValidatorMiddleware(func() interface{} {
+func SetupUser(f *fiber.App, app *app.Application) {
+	f.Post("/user/create", app.Middleware.SchemaValidatorMiddleware(func() interface{} {
 		return &dto.UserCreateDto{}
-	}), controllers.UserCreate(models.Roles.Admin))
+	}), app.UserController.UserCreate)
 
-	app.Post("/user/login", middleware.SchemaValidatorMiddleware(func() interface{} {
+	f.Post("/user/login", app.Middleware.SchemaValidatorMiddleware(func() interface{} {
 		return &dto.UserLoginDto{}
-	}), controllers.UserLogin)
+	}), app.UserController.UserLogin)
 
-	app.Patch("/user/update", middleware.SchemaValidatorMiddleware(func() interface{} {
+	f.Patch("/user/update", app.Middleware.SchemaValidatorMiddleware(func() interface{} {
 		return &dto.UserUpdateDto{}
-	}), middleware.UserAuthMiddleware, controllers.UserUpdateDto)
+	}), app.Middleware.UserAuthMiddleware, app.UserController.UserUpdateDto)
 
-	app.Post("/user/login/verify", middleware.UserAuthMiddleware, controllers.UserLoginVerify)
+	f.Post("/user/login/verify", app.Middleware.UserAuthMiddleware, app.UserController.UserLoginVerify)
 
-	app.Get("/user/reset-password", controllers.UserRequestPasswordResetLink)
-	app.Post("/user/reset-password", middleware.SchemaValidatorMiddleware(func() interface{} { return &dto.UserPasswordUpdateDto{} }), controllers.UserPasswordUpdate)
+	f.Get("/user/reset-password", app.UserController.UserRequestPasswordResetLink)
+	f.Post("/user/reset-password", app.Middleware.SchemaValidatorMiddleware(func() interface{} { return &dto.UserPasswordUpdateDto{} }), app.UserController.UserPasswordUpdate)
 
-	app.Get("/user/verify-email", controllers.UserVerifyEmailToken)
+	f.Get("/user/verify-email", app.UserController.UserVerifyEmailToken)
 
-	app.Delete("/user/:id", middleware.UserAuthMiddleware, controllers.UserMarkForDeletion)
+	f.Delete("/user/:id", app.Middleware.UserAuthMiddleware, app.UserController.UserMarkForDeletion)
 
-	app.Patch("/user/:id/password", middleware.SchemaValidatorMiddleware(func() interface{} {
+	f.Patch("/user/:id/password", app.Middleware.SchemaValidatorMiddleware(func() interface{} {
 		return &dto.UserPasswordUpdateDto{}
-	}), middleware.UserAuthMiddleware, controllers.UserPasswordUpdate)
+	}), app.Middleware.UserAuthMiddleware, app.UserController.UserPasswordUpdate)
 
-	app.Get("/user/logout", middleware.UserAuthMiddleware, controllers.UserLogout)
+	f.Get("/user/logout", app.Middleware.UserAuthMiddleware, app.UserController.UserLogout)
 
 }

@@ -4,9 +4,9 @@ import (
 	"log"
 	"os"
 
-	"github.com/21TechLabs/factory-be/database"
-	"github.com/21TechLabs/factory-be/routes"
-	"github.com/21TechLabs/factory-be/utils"
+	"github.com/21TechLabs/musiclms-backend/app"
+	"github.com/21TechLabs/musiclms-backend/routes"
+	"github.com/21TechLabs/musiclms-backend/utils"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
@@ -14,23 +14,19 @@ import (
 
 func init() {
 	utils.LoadEnv()
-
-	dbName := os.Getenv("MONGODB_DATABASE_NAME")
-
-	if dbName == "" {
-		log.Fatal("Please provide DB Name")
-	}
-	err := database.Connect(dbName)
-
-	if err != nil {
-		panic(err)
-	}
 }
 
 func main() {
-	var App *fiber.App = fiber.New()
 
-	App.Use(cors.New(cors.Config{
+	app, err := app.NewApplication()
+
+	if err != nil {
+		log.Fatalf("Failed to create application: %v", err)
+	}
+
+	var FiberApp = fiber.New()
+
+	FiberApp.Use(cors.New(cors.Config{
 		AllowCredentials: true,
 		AllowOriginsFunc: func(origin string) bool {
 			whitelistOrigins := utils.GetEnv("CORS_URLS", false)
@@ -38,18 +34,15 @@ func main() {
 		},
 	}))
 
-	routes.SetupUser(App)
-	routes.SetupOAuth(App)
-	routes.SetupPayments(App)
-	routes.SetupProduct(App)
-
-	// payments.SeedProductData()
+	routes.SetupRoutes(FiberApp, app)
 
 	var PORT string = os.Getenv("PORT")
 	if PORT == "" {
 		log.Fatal("Please provide PORT")
 	}
-	err := App.Listen(":" + PORT)
+
+	app.Logger.Printf("✅ We are running on port %s\n", PORT)
+	err = FiberApp.Listen(":" + PORT)
 
 	if err != nil {
 		log.Fatal(err)

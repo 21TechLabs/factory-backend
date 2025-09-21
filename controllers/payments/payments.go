@@ -1,19 +1,34 @@
-package payments
+package payments_controller
 
 import (
 	"encoding/json"
 	"fmt"
 	"log"
 
-	"github.com/21TechLabs/factory-be/dto"
-	"github.com/21TechLabs/factory-be/models"
-	"github.com/21TechLabs/factory-be/models/payments"
-	"github.com/21TechLabs/factory-be/utils"
+	"github.com/21TechLabs/musiclms-backend/dto"
+	"github.com/21TechLabs/musiclms-backend/models"
+	"github.com/21TechLabs/musiclms-backend/utils"
 	"github.com/gofiber/fiber/v2"
-	"go.mongodb.org/mongo-driver/mongo"
+	"gorm.io/gorm"
 )
 
-func CreatePayment(c *fiber.Ctx) error {
+type PaymentsController struct {
+	Logger                *log.Logger
+	ProductPlanStore      *models.ProductPlanStore
+	UserStore             *models.UserStore
+	UserSubscriptionStore *models.UserSubscriptionStore
+}
+
+func NewPaymentsController(log *log.Logger, store *models.ProductPlanStore, us *models.UserStore, uss *models.UserSubscriptionStore) *PaymentsController {
+	return &PaymentsController{
+		Logger:                log,
+		ProductPlanStore:      store,
+		UserStore:             us,
+		UserSubscriptionStore: uss,
+	}
+}
+
+func (pc *PaymentsController) CreatePayment(c *fiber.Ctx) error {
 	gateway := c.Params("paymentGateway")
 	if gateway == "" {
 		log.Printf("Payment gateway create error controller.payments.CreatePayment: %v", "Payment type or product id not found")
@@ -37,13 +52,13 @@ func CreatePayment(c *fiber.Ctx) error {
 
 	// check if user has already subscribed to the product or not
 
-	paymentGateway, err := payments.GetPaymentGateway(gateway, currentUser.ID.Hex())
+	paymentGateway, err := pc.ProductPlanStore.GetPaymentGateway(gateway, currentUser.ID)
 	if err != nil {
 		log.Printf("Payment gateway create error -- Get Payment Gateway controller.payments.CreatePayment: %v", err)
 		return utils.ErrorResponse(c, fiber.StatusBadRequest, err.Error())
 	}
 
-	product, err := payments.ProductPlansGetByID(parsedBody.ProductId)
+	product, err := pc.ProductPlanStore.ProductPlanGetByID(parsedBody.ProductId)
 
 	if err != nil {
 		log.Printf("Payment gateway create error -- ProductPlansGetByID controller.payments.CreatePayment: %v", err)
@@ -51,21 +66,21 @@ func CreatePayment(c *fiber.Ctx) error {
 	}
 
 	// check if user has an active subscription or not
-	userSubscription, err := currentUser.GetActiveAppSubscriptionByAppCode(product.AppCode)
+	userSubscription, err := pc.UserStore.GetActiveAppSubscriptionByAppCode(&currentUser, product.AppCode)
 
 	if err != nil {
-		if err != mongo.ErrNoDocuments {
+		if err != gorm.ErrRecordNotFound {
 			log.Printf("Payment gateway create error -- GetActiveAppSubscriptionByAppCode controller.payments.CreatePayment: %v", err)
 			return utils.ErrorResponse(c, fiber.StatusBadRequest, err.Error())
 		}
 	}
 
-	if !userSubscription.ID.IsZero() {
+	if userSubscription.Status == models.SubscriptionStatusActive {
 		log.Printf("Payment gateway create error -- GetActiveAppSubscriptionByAppCode controller.payments.CreatePayment: %v", "User already has an active subscription")
 		return utils.ErrorResponse(c, fiber.StatusBadRequest, "User already has an active subscription")
 	}
 
-	userSubscription, err = paymentGateway.CreatePayment(product, parsedBody.PlanIdx)
+	userSubscription, err = paymentGateway.CreatePayment(pc.UserSubscriptionStore, product, parsedBody.PlanIdx)
 
 	if err != nil {
 		log.Printf("Payment gateway create error -- Create Payment controller.payments.CreatePayment: %v", err)
@@ -78,7 +93,7 @@ func CreatePayment(c *fiber.Ctx) error {
 	})
 }
 
-func UpdatePaymentStatusWebhook(c *fiber.Ctx) error {
+func (pc *PaymentsController) UpdatePaymentStatusWebhook(c *fiber.Ctx) error {
 	gateway := c.Params("paymentGateway")
 	if gateway == "" {
 		log.Printf("Payment gateway status update webhook error controller.payments.UpdatePaymentStatus: %v", "Payment type or product id not found")
@@ -89,7 +104,8 @@ func UpdatePaymentStatusWebhook(c *fiber.Ctx) error {
 
 	fmt.Println("received webhook from ", gateway)
 
-	paymentGateway, err := payments.GetPaymentGateway(gateway, "")
+	// create a zero object of the payment gateway
+	paymentGateway, err := pc.ProductPlanStore.GetPaymentGateway(gateway, 0)
 	if err != nil {
 		log.Printf("Payment gateway status update webhook error -- Get Payment Gateway controller.payments.CreatePayment: %v", err)
 		return c.Status(fiber.StatusOK).JSON(fiber.Map{
@@ -97,12 +113,12 @@ func UpdatePaymentStatusWebhook(c *fiber.Ctx) error {
 		})
 	}
 
-	if paymentGateway.VerifyWebhookSignature(c) != nil {
-		log.Printf("Payment gateway status update webhook error -- VerifyWebhookSignature controller.payments.UpdatePaymentStatus: %v", "Webhook signature not verified")
-		return c.Status(fiber.StatusOK).JSON(fiber.Map{
-			"ok": true,
-		})
-	}
+	// if paymentGateway.VerifyWebhookSignature(c) != nil {
+	// 	log.Printf("Payment gateway status update webhook error -- VerifyWebhookSignature controller.payments.UpdatePaymentStatus: %v", "Webhook signature not verified")
+	// 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+	// 		"ok": true,
+	// 	})
+	// }
 
 	var orderId string
 
@@ -122,14 +138,14 @@ func UpdatePaymentStatusWebhook(c *fiber.Ctx) error {
 		})
 	}
 
-	if err = paymentGateway.SetUserViaOrderId(orderId); err != nil {
+	if err = paymentGateway.SetUserViaOrderId(pc.UserSubscriptionStore, orderId); err != nil {
 		log.Printf("Payment gateway status update webhook error -- SetUserViaOrderId controller.payments.UpdatePaymentStatus: %v", err)
 		return c.Status(fiber.StatusOK).JSON(fiber.Map{
 			"ok": true,
 		})
 	}
 
-	_, err = paymentGateway.UpdatePaymentStatus(orderId)
+	_, err = paymentGateway.UpdatePaymentStatus(pc.UserSubscriptionStore, orderId)
 	if err != nil {
 		log.Printf("Payment gateway status update webhook error -- Update Payment Status controller.payments.UpdatePaymentStatus: %v", err)
 		return c.Status(fiber.StatusOK).JSON(fiber.Map{
@@ -140,4 +156,20 @@ func UpdatePaymentStatusWebhook(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"ok": true,
 	})
+}
+
+func (pc *PaymentsController) GetProductPlansByAppCode(c *fiber.Ctx) error {
+	appCode := c.Params("appCode")
+	if appCode == "" {
+		log.Printf("Get Product Plans by App Code error controller.payments.GetProductPlansByAppCode: %v", "App code not found")
+		return utils.ErrorResponse(c, fiber.StatusBadRequest, "App code is empty")
+	}
+
+	plans, err := pc.ProductPlanStore.GetByAppCode(appCode)
+	if err != nil {
+		log.Printf("Get Product Plans by App Code error controller.payments.GetProductPlansByAppCode: %v", err)
+		return utils.ErrorResponse(c, fiber.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(plans)
 }

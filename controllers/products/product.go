@@ -1,22 +1,35 @@
-package products
+package products_controller
 
 import (
 	"log"
 
-	"github.com/21TechLabs/factory-be/models"
-	"github.com/21TechLabs/factory-be/models/payments"
-	"github.com/21TechLabs/factory-be/utils"
+	"github.com/21TechLabs/musiclms-backend/models"
+	"github.com/21TechLabs/musiclms-backend/utils"
 	"github.com/gofiber/fiber/v2"
 )
 
-func GetProductByAppCode(c *fiber.Ctx) error {
+type ProductPlanController struct {
+	Logger           *log.Logger
+	ProductPlanStore *models.ProductPlanStore
+	UserStore        *models.UserStore
+}
+
+func NewProductPlanController(log *log.Logger, store *models.ProductPlanStore, us *models.UserStore) *ProductPlanController {
+	return &ProductPlanController{
+		Logger:           log,
+		ProductPlanStore: store,
+		UserStore:        us,
+	}
+}
+
+func (ppc *ProductPlanController) GetProductByAppCode(c *fiber.Ctx) error {
 	var appCode string = c.Params("appCode")
 
 	if len(appCode) == 0 {
 		return utils.ErrorResponse(c, fiber.StatusBadRequest, "App code is required!")
 	}
 
-	product, err := payments.ProductPlansGetByAppCode(appCode)
+	product, err := ppc.ProductPlanStore.GetByAppCode(appCode)
 
 	if err != nil {
 		log.Printf("Failed to fetch product with app code \"%v\" because an error occured: %v", appCode, err.Error())
@@ -29,7 +42,7 @@ func GetProductByAppCode(c *fiber.Ctx) error {
 	})
 }
 
-func GetUsersActiveProductSubsctiptionByAppCode(c *fiber.Ctx) error {
+func (ppc *ProductPlanController) GetUsersActiveProductSubsctiptionByAppCode(c *fiber.Ctx) error {
 	var appCode string = c.Params("appCode")
 
 	if len(appCode) == 0 {
@@ -43,7 +56,7 @@ func GetUsersActiveProductSubsctiptionByAppCode(c *fiber.Ctx) error {
 		return utils.ErrorResponse(c, fiber.StatusBadRequest, "Failed to fetch user!")
 	}
 
-	subscription, err := user.GetActiveAppSubscriptionByAppCode(appCode)
+	subscription, err := ppc.UserStore.GetActiveAppSubscriptionByAppCode(&user, appCode)
 
 	if err != nil {
 		log.Printf("Failed to fetch product with app code \"%v\" because an error occured: %v", appCode, err.Error())

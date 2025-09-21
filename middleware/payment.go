@@ -3,54 +3,39 @@ package middleware
 import (
 	"time"
 
-	"github.com/21TechLabs/factory-be/models"
+	"github.com/21TechLabs/musiclms-backend/models"
+	"github.com/21TechLabs/musiclms-backend/utils"
 	"github.com/gofiber/fiber/v2"
 )
 
-func HasActivePlanAndLevel(minLevel int) func(*fiber.Ctx) error {
+func (m *Middleware) HasActivePlanAndLevel(minLevel int) func(*fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		user, ok := c.Locals("user").(*models.User)
 
 		if !ok {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-				"message": "Unauthorized: user not found",
-			})
+			return utils.ErrorResponse(c, fiber.StatusBadRequest, "User not found")
 		}
 
 		// get app code from query params
 		appCode := c.Query("appCode")
 
 		if appCode == "" {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"message": "appCode is required",
-			})
+			return utils.ErrorResponse(c, fiber.StatusBadRequest, "appCode is required")
 		}
 
-		activeSubscription, err := user.GetActiveAppSubscriptionByAppCode(appCode)
+		activeSubscription, err := m.UserStore.GetActiveAppSubscriptionByAppCode(user, appCode)
 
 		if err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"message": err.Error(),
-			})
-		}
-
-		if activeSubscription.ID.IsZero() {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"message": "No active subscription found",
-			})
+			return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to get active subscription: "+err.Error())
 		}
 
 		if activeSubscription.PlanLevel < minLevel {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"message": "User requires a higher plan level",
-			})
+			return utils.ErrorResponse(c, fiber.StatusBadRequest, "User does not have the required plan level for this app")
 		}
 
 		// check if current subscription expired or not
 		if time.Now().After(activeSubscription.SubscriptionEndsAt) {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"message": "Subscription expired",
-			})
+			return utils.ErrorResponse(c, fiber.StatusBadRequest, "User's current subscription has expired")
 		}
 
 		return c.Next()

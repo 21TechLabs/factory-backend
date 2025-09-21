@@ -1,67 +1,41 @@
 package middleware
 
 import (
-	"github.com/21TechLabs/factory-be/models"
-	"github.com/21TechLabs/factory-be/utils"
+	"github.com/21TechLabs/musiclms-backend/utils"
 	"github.com/gofiber/fiber/v2"
-	"github.com/kamva/mgm/v3"
-	"go.mongodb.org/mongo-driver/bson"
 )
 
-func UserAuthMiddleware(c *fiber.Ctx) error {
+func (m *Middleware) UserAuthMiddleware(c *fiber.Ctx) error {
 	authToken, err := utils.GetToken(c)
 
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"message": "Unauthorized: token not found",
-		})
+		return utils.ErrorResponse(c, fiber.StatusUnauthorized, "Unauthorized: "+err.Error())
 	}
 
-	// Load your secret key from a secure source (e.g., environment variable)
 	secretKey := []byte(utils.GetEnv("JWT_SECRET_KEY", false))
 
-	user, err := models.JwtTokenVerifyAndGetUser(authToken, secretKey)
+	user, err := m.UserStore.JwtTokenVerifyAndGetUser(authToken, secretKey)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"message": "Unauthorized: invalid token",
-		})
+		return utils.ErrorResponse(c, fiber.StatusUnauthorized, "Unauthorized: "+err.Error())
 	}
 
 	if user.AccountBlocked {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"message": "Unauthorized: account blocked",
-			"user":    user.GetDetails(false),
-		})
+		return utils.ErrorResponse(c, fiber.StatusUnauthorized, "Unauthorized: account blocked")
 	}
 
 	if user.AccountSuspended {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"message": "Unauthorized: account suspended",
-			"user":    user.GetDetails(false),
-		})
+		return utils.ErrorResponse(c, fiber.StatusUnauthorized, "Unauthorized: account suspended")
 	}
 
 	if user.AccountDeleted {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"message": "Unauthorized: account deleted",
-			"user":    user.GetDetails(false),
-		})
+		return utils.ErrorResponse(c, fiber.StatusUnauthorized, "Unauthorized: account deleted")
 	}
 
 	if user.MarkedForDeletion {
 		user.MarkedForDeletion = false
-		var ctx = mgm.Ctx()
-		_, err := mgm.Coll(&user).UpdateOne(ctx, bson.M{
-			"_id": user.ID,
-		}, bson.M{
-			"$set": user,
-		})
-
+		err := m.UserStore.Update(&user)
 		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"message": "Internal Server Error: failed to update user",
-				"error":   err.Error(),
-			})
+			return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to update user: "+err.Error())
 		}
 	}
 

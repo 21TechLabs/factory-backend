@@ -1,16 +1,16 @@
 package routes
 
 import (
-	"github.com/21TechLabs/factory-be/controllers/payments"
-	"github.com/21TechLabs/factory-be/dto"
-	"github.com/21TechLabs/factory-be/middleware"
+	"github.com/21TechLabs/musiclms-backend/app"
+	"github.com/21TechLabs/musiclms-backend/dto"
+	"github.com/21TechLabs/musiclms-backend/models"
 	"github.com/gofiber/fiber/v2"
 )
 
-func SetupPayments(app *fiber.App) {
-	app.Post("/payments/:paymentGateway", middleware.SchemaValidatorMiddleware(func() interface{} {
+func SetupPayments(f *fiber.App, app *app.Application) {
+	f.Post("/payments/:paymentGateway", app.Middleware.SchemaValidatorMiddleware(func() interface{} {
 		return &dto.CreateProductDto{}
-	}), middleware.UserAuthMiddleware, payments.CreatePayment)
+	}), app.Middleware.UserAuthMiddleware, app.Middleware.HasRoleMiddleware([]models.UserRole{models.UserRoleClient}), app.PaymentsController.CreatePayment)
 
-	app.Post("/payments/:paymentGateway/verify", payments.UpdatePaymentStatusWebhook)
+	f.Post("/payments/:paymentGateway/verify", app.PaymentsController.UpdatePaymentStatusWebhook)
 }

@@ -1,9 +1,11 @@
-package payments
+package models
 
-import "time"
+import (
+	"time"
+)
 
 type Razorpay struct {
-	UserId string
+	UserId uint
 }
 
 type RazorpaySubscriptionCreate struct {

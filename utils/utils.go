@@ -6,19 +6,19 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
-	"strings"
 	"regexp"
-	
+	"strings"
+
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/log"
 	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-func LoadEnv() {
-	err := godotenv.Load()
-	if err != nil {
-		panic(err)
-	}
+type ContextKey string
+
+func LoadEnv() error {
+	return godotenv.Load()
 }
 
 func GetEnv(envName string, allowEmpty bool) string {
@@ -60,7 +60,6 @@ func GetToken(c *fiber.Ctx) (string, error) {
 				authToken = authToken[7:]
 			}
 		}
-
 	}
 
 	if authToken == "" {
@@ -79,9 +78,9 @@ func GetToken(c *fiber.Ctx) (string, error) {
 	return authToken, nil
 }
 
-func IsValidObjectID(id string) bool {
-	_, err := primitive.ObjectIDFromHex(id)
-	return err == nil
+func IsValidObjectID(id string) (primitive.ObjectID, bool) {
+	obj, err := primitive.ObjectIDFromHex(id)
+	return obj, err == nil
 }
 
 func ValidateHeaderHMACSha256(body []byte, secret string, signature string) bool {
@@ -91,22 +90,22 @@ func ValidateHeaderHMACSha256(body []byte, secret string, signature string) bool
 	return signature == hex.EncodeToString(dataHmac)
 }
 
-
 func IsValidOrigin(origin, whitelistOrigins string) bool {
 	if origin == "" {
 		return false
 	}
 
+	if strings.TrimSpace(whitelistOrigins) == "*" {
+		return true
+	}
+
 	whitelist := strings.Split(whitelistOrigins, ",")
 	for _, whitelistedOrigin := range whitelist {
-		fmt.Println("Checking against whitelisted origin:", whitelistedOrigin)
 		stringMatchRegex, err := regexp.MatchString(whitelistedOrigin, origin)
-
 		if err != nil {
 			log.Warnf("Error matching origin %s with regex %s: %v", origin)
 			continue
 		}
-
 		if strings.TrimSpace(whitelistedOrigin) == "*" || stringMatchRegex {
 			return true
 		}
@@ -114,4 +113,3 @@ func IsValidOrigin(origin, whitelistOrigins string) bool {
 
 	return false
 }
-

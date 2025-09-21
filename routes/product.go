@@ -1,12 +1,12 @@
 package routes
 
 import (
-	"github.com/21TechLabs/factory-be/controllers/products"
-	"github.com/21TechLabs/factory-be/middleware"
+	"github.com/21TechLabs/musiclms-backend/app"
 	"github.com/gofiber/fiber/v2"
 )
 
-func SetupProduct(app *fiber.App) {
-	app.Get("/product/:appCode", products.GetProductByAppCode)
-	app.Get("/product/:appCode/@me", middleware.UserAuthMiddleware, products.GetUsersActiveProductSubsctiptionByAppCode)
+func SetupProduct(f *fiber.App, app *app.Application) {
+	f.Get("/product/:appCode", app.ProductPlanController.GetProductByAppCode)
+	f.Get("/product/:appCode/@me", app.Middleware.UserAuthMiddleware, app.ProductPlanController.GetUsersActiveProductSubsctiptionByAppCode)
+	f.Get("/product/:appCode/plans", app.PaymentsController.GetProductPlansByAppCode)
 }

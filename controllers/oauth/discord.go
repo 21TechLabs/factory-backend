@@ -1,4 +1,4 @@
-package oauth
+package oauth_controller
 
 import (
 	"encoding/json"
@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/21TechLabs/factory-be/dto"
-	"github.com/21TechLabs/factory-be/utils"
+	"github.com/21TechLabs/musiclms-backend/dto"
+	"github.com/21TechLabs/musiclms-backend/utils"
 )
 
 type DiscordConfig struct {

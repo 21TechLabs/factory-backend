@@ -1,19 +1,33 @@
-package oauth
+package oauth_controller
 
 import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
-	"github.com/21TechLabs/factory-be/controllers"
-	"github.com/21TechLabs/factory-be/dto"
-	"github.com/21TechLabs/factory-be/models"
-	"github.com/21TechLabs/factory-be/utils"
+	"github.com/21TechLabs/musiclms-backend/controllers"
+	"github.com/21TechLabs/musiclms-backend/dto"
+	"github.com/21TechLabs/musiclms-backend/models"
+	"github.com/21TechLabs/musiclms-backend/utils"
 	"github.com/gofiber/fiber/v2"
 	"github.com/markbates/goth"
 	"github.com/markbates/goth/providers/discord"
 	"github.com/shareed2k/goth_fiber"
+	"gorm.io/gorm"
 )
+
+type OAuthController struct {
+	Logger    *log.Logger
+	UserStore *models.UserStore
+}
+
+func NewOAuthController(log *log.Logger, userStore *models.UserStore) *OAuthController {
+	return &OAuthController{
+		Logger:    log,
+		UserStore: userStore,
+	}
+}
 
 func init() {
 	utils.LoadEnv()
@@ -23,7 +37,7 @@ func init() {
 	)
 }
 
-func GothicCallback(ctx *fiber.Ctx) error {
+func (oac *OAuthController) GothicCallback(ctx *fiber.Ctx) error {
 	gothicUser, err := goth_fiber.CompleteUserAuth(ctx)
 
 	if err != nil {
@@ -43,8 +57,6 @@ func GothicCallback(ctx *fiber.Ctx) error {
 			log.Printf("OAuth GothicCallback error discordUserGetDetail: %v\n", err)
 			return utils.ErrorResponse(ctx, fiber.StatusInternalServerError, err.Error())
 		}
-
-		fmt.Println(discordUserWeb)
 
 		userCreate = dto.UserCreateDto{
 			Name:            discordUserWeb.Username,
@@ -68,12 +80,16 @@ func GothicCallback(ctx *fiber.Ctx) error {
 		return utils.ErrorResponse(ctx, fiber.StatusBadRequest, "Email not found")
 	}
 
-	user, err := models.UserGetByEmail(userCreate.Email)
+	user, err := oac.UserStore.UserGetByEmail(userCreate.Email)
 
 	if err != nil {
-		if err.Error() == "not found" {
+		if err == gorm.ErrRecordNotFound {
 			// create a new user
-			user, err = models.UserCreate(userCreate, models.Roles.Client)
+			// user role
+
+			var isSubdomain = len(strings.Split(ctx.Get("Origin"), ".")) == 3
+
+			user, err = oac.UserStore.UserCreate(userCreate, isSubdomain)
 			if err != nil {
 				return utils.ErrorResponse(ctx, fiber.StatusBadRequest, err.Error())
 			}
@@ -83,5 +99,5 @@ func GothicCallback(ctx *fiber.Ctx) error {
 		}
 	}
 
-	return controllers.SetLoginTokenAndSendResponse(ctx, user, false)
+	return controllers.SetLoginTokenAndSendResponse(ctx, user, false, oac.UserStore)
 }
