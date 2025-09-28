@@ -9,8 +9,6 @@ import (
 	"github.com/go-playground/validator/v10"
 )
 
-const SchemaValidatorContextKey utils.ContextKey = "parsedBody"
-
 func (m *Middleware) SchemaValidatorMiddleware(schemaFunc func() interface{}) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -55,7 +53,7 @@ func (m *Middleware) SchemaValidatorMiddleware(schemaFunc func() interface{}) fu
 			}
 
 			// attach body to request context
-			ctx := context.WithValue(r.Context(), SchemaValidatorContextKey, body)
+			ctx := context.WithValue(r.Context(), utils.SchemaValidatorContextKey, body)
 			r = r.WithContext(ctx)
 
 			next.ServeHTTP(w, r)

@@ -1,7 +1,7 @@
-POST http://localhost:8080/user/create
+POST http://localhost:8000/user/create
 content-type: application/json
 
-{   
+{
     "name": "John Doe",
     "email": "test2@gmail.com",
     "password": "abhay@123",
@@ -9,19 +9,19 @@ content-type: application/json
 }
 
 ### Login
-POST http://localhost:8080/user/login
+POST http://localhost:8000/user/login
 content-type: application/json
 
 {
-  "email": "abhay1029singh@gmail.com",
-  "password": "Abhay@123"
+  "email": "test2@gmail.com",
+  "password": "abhay@123"
 }
 
 ### Request Reset Password Link
-GET http://localhost:8080/user/reset-password?email=abhay1029singh@gmail.com
+GET http://localhost:8000/user/reset-password?email=abhay1029singh@gmail.com
 
 ### Reset Password
-POST http://localhost:8080/user/reset-password
+POST http://localhost:8000/user/reset-password
 content-type: application/json
 
 {

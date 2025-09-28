@@ -1,7 +1,6 @@
 package controllers
 
 import (
-	"encoding/json"
 	"log"
 	"net/http"
 	"time"
@@ -24,21 +23,11 @@ func NewUserController(logger *log.Logger, store *models.UserStore) *UserControl
 }
 
 func (uc *UserController) UserCreate(w http.ResponseWriter, r *http.Request) {
-
-	usr := dto.UserCreateDto{}
-
-	body := r.Body
-	err := json.NewDecoder(body).Decode(&usr)
+	var usr = r.Context().Value(utils.SchemaValidatorContextKey).(*dto.UserCreateDto)
+	user, err := uc.UserStore.UserCreate(*usr)
 
 	if err != nil {
-		utils.ErrorResponse(uc.Logger, w, http.StatusBadRequest, []byte(err.Error()))
-		return
-	}
-
-	user, err := uc.UserStore.UserCreate(usr)
-
-	if err != nil {
-		// return utils.ErrorResponse(c, fiber.StatusBadRequest, err.Error())
+		uc.Logger.Printf("UserCreate Error: %v\n", err)
 		utils.ErrorResponse(uc.Logger, w, http.StatusBadRequest, []byte(err.Error()))
 		return
 	}
@@ -48,15 +37,7 @@ func (uc *UserController) UserCreate(w http.ResponseWriter, r *http.Request) {
 
 func (uc *UserController) UserUpdateDto(w http.ResponseWriter, r *http.Request) {
 
-	parsedBody := dto.UserUpdateDto{}
-
-	err := json.NewDecoder(r.Body).Decode(&parsedBody)
-
-	if err != nil {
-		utils.ErrorResponse(uc.Logger, w, http.StatusBadRequest, []byte(err.Error()))
-		return
-	}
-
+	parsedBody := r.Context().Value(utils.SchemaValidatorContextKey).(*dto.UserUpdateDto)
 	currentUser, ok := r.Context().Value(utils.UserContextKey).(*models.User)
 
 	if !ok {
@@ -67,7 +48,7 @@ func (uc *UserController) UserUpdateDto(w http.ResponseWriter, r *http.Request) 
 	currentUser.Name = parsedBody.Name
 	// currentUser.Email = parsedBody.Email
 
-	err = uc.UserStore.Update(currentUser)
+	err := uc.UserStore.Update(currentUser)
 
 	if err != nil {
 		utils.ErrorResponse(uc.Logger, w, http.StatusBadRequest, []byte(err.Error()))
@@ -83,14 +64,7 @@ func (uc *UserController) UserUpdateDto(w http.ResponseWriter, r *http.Request) 
 func (uc *UserController) UserPasswordUpdate(w http.ResponseWriter, r *http.Request) {
 	// body := c.Body()
 
-	parsedBody := dto.UserPasswordUpdateDto{}
-
-	err := json.NewDecoder(r.Body).Decode(&parsedBody)
-
-	if err != nil {
-		utils.ErrorResponse(uc.Logger, w, http.StatusBadRequest, []byte(err.Error()))
-		return
-	}
+	parsedBody := r.Context().Value(utils.SchemaValidatorContextKey).(*dto.UserPasswordUpdateDto)
 
 	currentUser, err := uc.UserStore.UserGetByEmail(parsedBody.Email)
 
@@ -198,17 +172,14 @@ func (uc *UserController) UserVerifyEmailToken(w http.ResponseWriter, r *http.Re
 
 func (uc *UserController) UserLogin(w http.ResponseWriter, r *http.Request) {
 
-	var loginBody dto.UserLoginDto
-
-	err := json.NewDecoder(r.Body).Decode(&loginBody)
-
+	loginBody, err := utils.ReadContextValue[*dto.UserLoginDto](r, utils.SchemaValidatorContextKey)
 	if err != nil {
-		uc.Logger.Printf("UserLogin Error: Json Validation Failed: %v\n", err)
-		utils.ErrorResponse(uc.Logger, w, http.StatusBadRequest, []byte("UserLogin Error: Json Validation Failed."))
+		uc.Logger.Printf("UserLogin Error: %v\n", err)
+		utils.ErrorResponse(uc.Logger, w, http.StatusBadRequest, []byte(err.Error()))
 		return
 	}
 
-	user, err := uc.UserStore.UserLogin(loginBody)
+	user, err := uc.UserStore.UserLogin(*loginBody)
 
 	if err != nil {
 		uc.Logger.Printf("UserLogin Error: %v\n", err)

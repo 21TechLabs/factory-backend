@@ -10,11 +10,6 @@ import (
 )
 
 func SetupPayments(router *http.ServeMux, app *app.Application) {
-	// f.Post("/payments/:paymentGateway", app.Middleware.SchemaValidatorMiddleware(func() interface{} {
-	// 	return &dto.CreateProductDto{}
-	// }), app.Middleware.UserAuthMiddleware, app.Middleware.HasRoleMiddleware([]models.UserRole{models.UserRoleClient}), app.PaymentsController.CreatePayment)
-
-	// f.Post("/payments/:paymentGateway/verify", app.PaymentsController.UpdatePaymentStatusWebhook)
 
 	router.Handle("POST /payments/:paymentGateway", app.Middleware.CreateStackWithHandler(
 		[]middleware.MiddlewareStack{

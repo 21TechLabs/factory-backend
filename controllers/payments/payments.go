@@ -1,7 +1,6 @@
 package payments_controller
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -36,9 +35,8 @@ func (pc *PaymentsController) CreatePayment(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	parsedBody := dto.CreateProductDto{}
-
-	err := json.NewDecoder(r.Body).Decode(&parsedBody)
+	// var parsedBody *dto.CreateProductDto = r.Context().Value(utils.SchemaValidatorContextKey).(*dto.CreateProductDto)
+	parsedBody, err := utils.ReadContextValue[dto.CreateProductDto](r, utils.SchemaValidatorContextKey)
 
 	if err != nil {
 		log.Printf("Payment gateway create error controller.payments.CreatePayment: %v", err)
@@ -145,6 +143,7 @@ func (pc *PaymentsController) UpdatePaymentStatusWebhook(w http.ResponseWriter, 
 		})
 		return
 	}
+	defer r.Body.Close()
 
 	orderId, err = paymentGateway.GetOrderIdFromWebhookRequest(bodyBytes)
 

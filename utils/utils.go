@@ -68,17 +68,6 @@ func GetToken(r *http.Request) (string, error) {
 	}
 
 	if authToken == "" {
-		var payload = struct {
-			Token string `json:"token"`
-		}{}
-		err = json.NewDecoder(r.Body).Decode(&payload)
-		if err != nil {
-			return "", fmt.Errorf("error decoding request body: %w", err)
-		}
-		authToken = payload.Token
-	}
-
-	if authToken == "" {
 		return "", RaiseError{Message: "Token not found in headers or body"}
 	}
 	return authToken, nil
