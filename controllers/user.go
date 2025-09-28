@@ -1,7 +1,6 @@
 package controllers
 
 import (
-	"encoding/json"
 	"log"
 	"net/http"
 	"time"
@@ -24,21 +23,16 @@ func NewUserController(logger *log.Logger, store *models.UserStore) *UserControl
 }
 
 func (uc *UserController) UserCreate(w http.ResponseWriter, r *http.Request) {
-
-	usr := dto.UserCreateDto{}
-
-	body := r.Body
-	err := json.NewDecoder(body).Decode(&usr)
-
+	usr, err := utils.ReadContextValue[*dto.UserCreateDto](r, utils.SchemaValidatorContextKey)
 	if err != nil {
+		uc.Logger.Printf("UserCreate Error: %v\n", err)
 		utils.ErrorResponse(uc.Logger, w, http.StatusBadRequest, []byte(err.Error()))
 		return
 	}
-
-	user, err := uc.UserStore.UserCreate(usr)
+	user, err := uc.UserStore.UserCreate(*usr)
 
 	if err != nil {
-		// return utils.ErrorResponse(c, fiber.StatusBadRequest, err.Error())
+		uc.Logger.Printf("UserCreate Error: %v\n", err)
 		utils.ErrorResponse(uc.Logger, w, http.StatusBadRequest, []byte(err.Error()))
 		return
 	}
@@ -48,19 +42,16 @@ func (uc *UserController) UserCreate(w http.ResponseWriter, r *http.Request) {
 
 func (uc *UserController) UserUpdateDto(w http.ResponseWriter, r *http.Request) {
 
-	parsedBody := dto.UserUpdateDto{}
-
-	err := json.NewDecoder(r.Body).Decode(&parsedBody)
-
+	parsedBody, err := utils.ReadContextValue[*dto.UserUpdateDto](r, utils.SchemaValidatorContextKey)
 	if err != nil {
+		uc.Logger.Printf("UserUpdateDto Error: %v\n", err)
 		utils.ErrorResponse(uc.Logger, w, http.StatusBadRequest, []byte(err.Error()))
 		return
 	}
 
-	currentUser, ok := r.Context().Value(utils.UserContextKey).(*models.User)
-
-	if !ok {
-		utils.ErrorResponse(uc.Logger, w, http.StatusBadRequest, []byte("User not found"))
+	currentUser, err := utils.ReadContextValue[*models.User](r, utils.UserContextKey)
+	if err != nil || currentUser == nil {
+		utils.ErrorResponse(uc.Logger, w, http.StatusUnauthorized, []byte("User not found"))
 		return
 	}
 
@@ -81,13 +72,9 @@ func (uc *UserController) UserUpdateDto(w http.ResponseWriter, r *http.Request) 
 }
 
 func (uc *UserController) UserPasswordUpdate(w http.ResponseWriter, r *http.Request) {
-	// body := c.Body()
-
-	parsedBody := dto.UserPasswordUpdateDto{}
-
-	err := json.NewDecoder(r.Body).Decode(&parsedBody)
-
+	parsedBody, err := utils.ReadContextValue[*dto.UserPasswordUpdateDto](r, utils.SchemaValidatorContextKey)
 	if err != nil {
+		uc.Logger.Printf("UserPasswordUpdate Error: %v\n", err)
 		utils.ErrorResponse(uc.Logger, w, http.StatusBadRequest, []byte(err.Error()))
 		return
 	}
@@ -116,15 +103,13 @@ func (uc *UserController) UserPasswordUpdate(w http.ResponseWriter, r *http.Requ
 }
 
 func (uc *UserController) UserMarkForDeletion(w http.ResponseWriter, r *http.Request) {
-
-	currentUser, ok := r.Context().Value(utils.UserContextKey).(*models.User)
-
-	if !ok {
-		utils.ErrorResponse(uc.Logger, w, http.StatusBadRequest, []byte("User not found"))
+	currentUser, err := utils.ReadContextValue[*models.User](r, utils.UserContextKey)
+	if err != nil || currentUser == nil {
+		utils.ErrorResponse(uc.Logger, w, http.StatusUnauthorized, []byte("User not found"))
 		return
 	}
 
-	err := uc.UserStore.MarkAccountForDeletion(currentUser)
+	err = uc.UserStore.MarkAccountForDeletion(currentUser)
 
 	if err != nil {
 		utils.ErrorResponse(uc.Logger, w, http.StatusBadRequest, []byte(err.Error()))
@@ -198,17 +183,14 @@ func (uc *UserController) UserVerifyEmailToken(w http.ResponseWriter, r *http.Re
 
 func (uc *UserController) UserLogin(w http.ResponseWriter, r *http.Request) {
 
-	var loginBody dto.UserLoginDto
-
-	err := json.NewDecoder(r.Body).Decode(&loginBody)
-
+	loginBody, err := utils.ReadContextValue[*dto.UserLoginDto](r, utils.SchemaValidatorContextKey)
 	if err != nil {
-		uc.Logger.Printf("UserLogin Error: Json Validation Failed: %v\n", err)
-		utils.ErrorResponse(uc.Logger, w, http.StatusBadRequest, []byte("UserLogin Error: Json Validation Failed."))
+		uc.Logger.Printf("UserLogin Error: %v\n", err)
+		utils.ErrorResponse(uc.Logger, w, http.StatusBadRequest, []byte(err.Error()))
 		return
 	}
 
-	user, err := uc.UserStore.UserLogin(loginBody)
+	user, err := uc.UserStore.UserLogin(*loginBody)
 
 	if err != nil {
 		uc.Logger.Printf("UserLogin Error: %v\n", err)
@@ -220,11 +202,12 @@ func (uc *UserController) UserLogin(w http.ResponseWriter, r *http.Request) {
 }
 
 func (uc *UserController) UserLoginVerify(w http.ResponseWriter, r *http.Request) {
-	user, ok := r.Context().Value(utils.UserContextKey).(*models.User)
-	if !ok {
-		utils.ErrorResponse(uc.Logger, w, http.StatusBadRequest, []byte("User not found in context"))
+	user, err := utils.ReadContextValue[*models.User](r, utils.UserContextKey)
+	if err != nil || user == nil {
+		utils.ErrorResponse(uc.Logger, w, http.StatusUnauthorized, []byte("User not found"))
 		return
 	}
+
 	SetLoginTokenAndSendResponse(uc.Logger, r, w, *user, false, uc.UserStore)
 }
 

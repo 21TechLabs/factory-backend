@@ -1,7 +1,6 @@
 package payments_controller
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -36,9 +35,7 @@ func (pc *PaymentsController) CreatePayment(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	parsedBody := dto.CreateProductDto{}
-
-	err := json.NewDecoder(r.Body).Decode(&parsedBody)
+	parsedBody, err := utils.ReadContextValue[*dto.CreateProductDto](r, utils.SchemaValidatorContextKey)
 
 	if err != nil {
 		log.Printf("Payment gateway create error controller.payments.CreatePayment: %v", err)
@@ -46,10 +43,9 @@ func (pc *PaymentsController) CreatePayment(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	currentUser, ok := r.Context().Value("user").(models.User)
-
-	if !ok {
-		log.Printf("Payment gateway create error controller.payments.CreatePayment: %v", ok)
+	currentUser, err := utils.ReadContextValue[*models.User](r, utils.UserContextKey)
+	if err != nil || currentUser == nil {
+		log.Printf("Payment gateway create error controller.payments.CreatePayment: %v", "User not found")
 		utils.ErrorResponse(pc.Logger, w, http.StatusUnauthorized, []byte("User not found"))
 		return
 	}
@@ -72,7 +68,7 @@ func (pc *PaymentsController) CreatePayment(w http.ResponseWriter, r *http.Reque
 	}
 
 	// check if user has an active subscription or not
-	userSubscription, err := pc.UserStore.GetActiveAppSubscriptionByAppCode(&currentUser, product.AppCode)
+	userSubscription, err := pc.UserStore.GetActiveAppSubscriptionByAppCode(currentUser, product.AppCode)
 
 	if err != nil {
 		if err != gorm.ErrRecordNotFound {
@@ -145,6 +141,7 @@ func (pc *PaymentsController) UpdatePaymentStatusWebhook(w http.ResponseWriter, 
 		})
 		return
 	}
+	defer r.Body.Close()
 
 	orderId, err = paymentGateway.GetOrderIdFromWebhookRequest(bodyBytes)
 
