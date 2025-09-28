@@ -43,10 +43,9 @@ func (pc *PaymentsController) CreatePayment(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	currentUser, ok := r.Context().Value("user").(models.User)
-
-	if !ok {
-		log.Printf("Payment gateway create error controller.payments.CreatePayment: %v", ok)
+	currentUser, err := utils.ReadContextValue[*models.User](r, utils.UserContextKey)
+	if err != nil || currentUser == nil {
+		log.Printf("Payment gateway create error controller.payments.CreatePayment: %v", "User not found")
 		utils.ErrorResponse(pc.Logger, w, http.StatusUnauthorized, []byte("User not found"))
 		return
 	}
