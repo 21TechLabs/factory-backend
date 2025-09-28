@@ -35,7 +35,6 @@ func (pc *PaymentsController) CreatePayment(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// var parsedBody *dto.CreateProductDto = r.Context().Value(utils.SchemaValidatorContextKey).(*dto.CreateProductDto)
 	parsedBody, err := utils.ReadContextValue[dto.CreateProductDto](r, utils.SchemaValidatorContextKey)
 
 	if err != nil {

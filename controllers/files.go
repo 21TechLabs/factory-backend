@@ -24,9 +24,9 @@ func NewFileController(log *log.Logger, fs *models.FileStore, us *models.UserSto
 }
 
 func (fc *FileController) FileUpload(w http.ResponseWriter, r *http.Request) {
-	currentUser, ok := r.Context().Value(utils.UserContextKey).(*models.User)
+	currentUser, err := utils.ReadContextValue[*models.User](r, utils.UserContextKey)
 
-	if !ok {
+	if err != nil || currentUser == nil {
 		utils.ErrorResponse(fc.Logger, w, http.StatusUnauthorized, []byte("User not found"))
 		return
 	}

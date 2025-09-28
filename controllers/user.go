@@ -23,7 +23,12 @@ func NewUserController(logger *log.Logger, store *models.UserStore) *UserControl
 }
 
 func (uc *UserController) UserCreate(w http.ResponseWriter, r *http.Request) {
-	var usr = r.Context().Value(utils.SchemaValidatorContextKey).(*dto.UserCreateDto)
+	usr, err := utils.ReadContextValue[*dto.UserCreateDto](r, utils.SchemaValidatorContextKey)
+	if err != nil {
+		uc.Logger.Printf("UserCreate Error: %v\n", err)
+		utils.ErrorResponse(uc.Logger, w, http.StatusBadRequest, []byte(err.Error()))
+		return
+	}
 	user, err := uc.UserStore.UserCreate(*usr)
 
 	if err != nil {
@@ -37,18 +42,23 @@ func (uc *UserController) UserCreate(w http.ResponseWriter, r *http.Request) {
 
 func (uc *UserController) UserUpdateDto(w http.ResponseWriter, r *http.Request) {
 
-	parsedBody := r.Context().Value(utils.SchemaValidatorContextKey).(*dto.UserUpdateDto)
-	currentUser, ok := r.Context().Value(utils.UserContextKey).(*models.User)
+	parsedBody, err := utils.ReadContextValue[dto.UserUpdateDto](r, utils.SchemaValidatorContextKey)
+	if err != nil {
+		uc.Logger.Printf("UserUpdateDto Error: %v\n", err)
+		utils.ErrorResponse(uc.Logger, w, http.StatusBadRequest, []byte(err.Error()))
+		return
+	}
 
-	if !ok {
-		utils.ErrorResponse(uc.Logger, w, http.StatusBadRequest, []byte("User not found"))
+	currentUser, err := utils.ReadContextValue[*models.User](r, utils.UserContextKey)
+	if err != nil || currentUser == nil {
+		utils.ErrorResponse(uc.Logger, w, http.StatusUnauthorized, []byte("User not found"))
 		return
 	}
 
 	currentUser.Name = parsedBody.Name
 	// currentUser.Email = parsedBody.Email
 
-	err := uc.UserStore.Update(currentUser)
+	err = uc.UserStore.Update(currentUser)
 
 	if err != nil {
 		utils.ErrorResponse(uc.Logger, w, http.StatusBadRequest, []byte(err.Error()))
@@ -62,9 +72,12 @@ func (uc *UserController) UserUpdateDto(w http.ResponseWriter, r *http.Request) 
 }
 
 func (uc *UserController) UserPasswordUpdate(w http.ResponseWriter, r *http.Request) {
-	// body := c.Body()
-
-	parsedBody := r.Context().Value(utils.SchemaValidatorContextKey).(*dto.UserPasswordUpdateDto)
+	parsedBody, err := utils.ReadContextValue[dto.UserPasswordUpdateDto](r, utils.SchemaValidatorContextKey)
+	if err != nil {
+		uc.Logger.Printf("UserPasswordUpdate Error: %v\n", err)
+		utils.ErrorResponse(uc.Logger, w, http.StatusBadRequest, []byte(err.Error()))
+		return
+	}
 
 	currentUser, err := uc.UserStore.UserGetByEmail(parsedBody.Email)
 
@@ -90,15 +103,13 @@ func (uc *UserController) UserPasswordUpdate(w http.ResponseWriter, r *http.Requ
 }
 
 func (uc *UserController) UserMarkForDeletion(w http.ResponseWriter, r *http.Request) {
-
-	currentUser, ok := r.Context().Value(utils.UserContextKey).(*models.User)
-
-	if !ok {
-		utils.ErrorResponse(uc.Logger, w, http.StatusBadRequest, []byte("User not found"))
+	currentUser, err := utils.ReadContextValue[*models.User](r, utils.UserContextKey)
+	if err != nil || currentUser == nil {
+		utils.ErrorResponse(uc.Logger, w, http.StatusUnauthorized, []byte("User not found"))
 		return
 	}
 
-	err := uc.UserStore.MarkAccountForDeletion(currentUser)
+	err = uc.UserStore.MarkAccountForDeletion(currentUser)
 
 	if err != nil {
 		utils.ErrorResponse(uc.Logger, w, http.StatusBadRequest, []byte(err.Error()))
@@ -191,11 +202,12 @@ func (uc *UserController) UserLogin(w http.ResponseWriter, r *http.Request) {
 }
 
 func (uc *UserController) UserLoginVerify(w http.ResponseWriter, r *http.Request) {
-	user, ok := r.Context().Value(utils.UserContextKey).(*models.User)
-	if !ok {
-		utils.ErrorResponse(uc.Logger, w, http.StatusBadRequest, []byte("User not found in context"))
+	user, err := utils.ReadContextValue[*models.User](r, utils.UserContextKey)
+	if err != nil || user == nil {
+		utils.ErrorResponse(uc.Logger, w, http.StatusUnauthorized, []byte("User not found"))
 		return
 	}
+
 	SetLoginTokenAndSendResponse(uc.Logger, r, w, *user, false, uc.UserStore)
 }
 

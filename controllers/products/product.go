@@ -57,9 +57,9 @@ func (ppc *ProductPlanController) GetUsersActiveProductSubsctiptionByAppCode(w h
 		return
 	}
 
-	user, ok := r.Context().Value(utils.UserContextKey).(*models.User)
+	user, err := utils.ReadContextValue[*models.User](r, utils.UserContextKey)
 
-	if !ok {
+	if err != nil || user == nil {
 		log.Printf("Failed to fetch user because user is not found in the context!")
 		utils.ErrorResponse(ppc.Logger, w, http.StatusBadRequest, []byte("Failed to fetch user!"))
 		return

@@ -11,8 +11,9 @@ import (
 func (m *Middleware) HasRoleMiddleware(whiteListedRoles []models.UserRole) IMiddleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			user, ok := r.Context().Value(utils.UserContextKey).(*models.User)
-			if !ok {
+			user, err := utils.ReadContextValue[*models.User](r, utils.UserContextKey)
+
+			if err != nil || user == nil {
 				utils.ErrorResponse(m.Logger, w, http.StatusUnauthorized, []byte("Unauthorized: user not found"))
 				return
 			}
