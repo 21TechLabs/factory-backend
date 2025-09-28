@@ -68,7 +68,7 @@ func (pc *PaymentsController) CreatePayment(w http.ResponseWriter, r *http.Reque
 	}
 
 	// check if user has an active subscription or not
-	userSubscription, err := pc.UserStore.GetActiveAppSubscriptionByAppCode(&currentUser, product.AppCode)
+	userSubscription, err := pc.UserStore.GetActiveAppSubscriptionByAppCode(currentUser, product.AppCode)
 
 	if err != nil {
 		if err != gorm.ErrRecordNotFound {
