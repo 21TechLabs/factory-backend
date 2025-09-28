@@ -42,7 +42,7 @@ func (uc *UserController) UserCreate(w http.ResponseWriter, r *http.Request) {
 
 func (uc *UserController) UserUpdateDto(w http.ResponseWriter, r *http.Request) {
 
-	parsedBody, err := utils.ReadContextValue[dto.UserUpdateDto](r, utils.SchemaValidatorContextKey)
+	parsedBody, err := utils.ReadContextValue[*dto.UserUpdateDto](r, utils.SchemaValidatorContextKey)
 	if err != nil {
 		uc.Logger.Printf("UserUpdateDto Error: %v\n", err)
 		utils.ErrorResponse(uc.Logger, w, http.StatusBadRequest, []byte(err.Error()))
@@ -72,7 +72,7 @@ func (uc *UserController) UserUpdateDto(w http.ResponseWriter, r *http.Request) 
 }
 
 func (uc *UserController) UserPasswordUpdate(w http.ResponseWriter, r *http.Request) {
-	parsedBody, err := utils.ReadContextValue[dto.UserPasswordUpdateDto](r, utils.SchemaValidatorContextKey)
+	parsedBody, err := utils.ReadContextValue[*dto.UserPasswordUpdateDto](r, utils.SchemaValidatorContextKey)
 	if err != nil {
 		uc.Logger.Printf("UserPasswordUpdate Error: %v\n", err)
 		utils.ErrorResponse(uc.Logger, w, http.StatusBadRequest, []byte(err.Error()))

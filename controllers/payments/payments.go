@@ -35,7 +35,7 @@ func (pc *PaymentsController) CreatePayment(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	parsedBody, err := utils.ReadContextValue[dto.CreateProductDto](r, utils.SchemaValidatorContextKey)
+	parsedBody, err := utils.ReadContextValue[*dto.CreateProductDto](r, utils.SchemaValidatorContextKey)
 
 	if err != nil {
 		log.Printf("Payment gateway create error controller.payments.CreatePayment: %v", err)
