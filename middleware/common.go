@@ -2,18 +2,36 @@ package middleware
 
 import (
 	"log"
+	"net/http"
 
-	"github.com/21TechLabs/musiclms-backend/models"
+	"github.com/21TechLabs/factory-backend/models"
 )
+
+type IMiddleware = func(next http.Handler) http.Handler
 
 type Middleware struct {
 	Logger    *log.Logger
 	UserStore *models.UserStore
 }
 
-func NewMiddleware(log *log.Logger, userStore *models.UserStore) *Middleware {
+func NewMiddleware(logger *log.Logger, userStore *models.UserStore) *Middleware {
 	return &Middleware{
-		Logger:    log,
+		Logger:    logger,
 		UserStore: userStore,
 	}
+}
+
+type MiddlewareStack func(next http.Handler) http.Handler
+
+func (m *Middleware) CreateStack(middlewares ...MiddlewareStack) MiddlewareStack {
+	return func(next http.Handler) http.Handler {
+		for _, middleware := range middlewares {
+			next = middleware(next)
+		}
+		return next
+	}
+}
+
+func (m *Middleware) CreateStackWithHandler(middlewares []MiddlewareStack, controller http.HandlerFunc) http.Handler {
+	return m.CreateStack(middlewares...)(controller)
 }

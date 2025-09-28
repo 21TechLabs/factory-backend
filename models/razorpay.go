@@ -5,10 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net/http"
 	"time"
 
-	"github.com/21TechLabs/musiclms-backend/utils"
-	"github.com/gofiber/fiber/v2"
+	"github.com/21TechLabs/factory-backend/utils"
 	"github.com/razorpay/razorpay-go"
 )
 
@@ -158,12 +158,44 @@ func (s *Razorpay) UpdatePaymentStatus(uss *UserSubscriptionStore, subscriptionI
 	return UserSubscription{}, nil
 }
 
-func (s *Razorpay) VerifyWebhookSignature(c *fiber.Ctx) error {
-	headerSignature := c.Get("x-razorpay-signature")
+func (s *Razorpay) VerifyWebhookSignature(r *http.Request) error {
+	headerSignature := r.Header.Get("x-razorpay-signature")
+	if headerSignature == "" {
+		log.Printf("Payment gateway create error -- VerifyWebhookSignature controller.payments.VerifyWebhookSignature.razorpay: %v", "Header signature not found")
+		return errors.New("header signature not found")
+	}
 
 	var secret = utils.GetEnv("PAYMENTS_HMEC_SECRET", false)
 
-	if !utils.ValidateHeaderHMACSha256(c.Body(), secret, headerSignature) {
+	if secret == "" {
+		log.Printf("Payment gateway create error -- VerifyWebhookSignature controller.payments.VerifyWebhookSignature.razorpay: %v", "HMAC secret not found")
+		return errors.New("HMAC secret not found")
+	}
+
+	if r.Body == nil {
+		log.Printf("Payment gateway create error -- VerifyWebhookSignature controller.payments.VerifyWebhookSignature.razorpay: %v", "Request body is empty")
+		return errors.New("request body is empty")
+	}
+
+	c, err := r.GetBody()
+	if err != nil {
+		log.Printf("Payment gateway create error -- VerifyWebhookSignature controller.payments.VerifyWebhookSignature.razorpay: %v", err)
+		return err
+	}
+
+	bodyBytes := make([]byte, r.ContentLength)
+	_, err = c.Read(bodyBytes)
+	if err != nil {
+		log.Printf("Payment gateway create error -- VerifyWebhookSignature controller.payments.VerifyWebhookSignature.razorpay: %v", err)
+		return err
+	}
+
+	if len(bodyBytes) == 0 {
+		log.Printf("Payment gateway create error -- VerifyWebhookSignature controller.payments.VerifyWebhookSignature.razorpay: %v", "Request body is empty")
+		return errors.New("request body is empty")
+	}
+
+	if !utils.ValidateHeaderHMACSha256(bodyBytes, secret, headerSignature) {
 		return errors.New("invalid signature")
 	}
 

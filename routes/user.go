@@ -1,37 +1,85 @@
 package routes
 
 import (
-	"github.com/21TechLabs/musiclms-backend/app"
-	"github.com/21TechLabs/musiclms-backend/dto"
-	fiber "github.com/gofiber/fiber/v2"
+	"net/http"
+
+	"github.com/21TechLabs/factory-backend/app"
+	"github.com/21TechLabs/factory-backend/dto"
+	"github.com/21TechLabs/factory-backend/middleware"
 )
 
-func SetupUser(f *fiber.App, app *app.Application) {
-	f.Post("/user/create", app.Middleware.SchemaValidatorMiddleware(func() interface{} {
-		return &dto.UserCreateDto{}
-	}), app.UserController.UserCreate)
+func SetupUser(router *http.ServeMux, app *app.Application) {
 
-	f.Post("/user/login", app.Middleware.SchemaValidatorMiddleware(func() interface{} {
-		return &dto.UserLoginDto{}
-	}), app.UserController.UserLogin)
+	router.Handle("POST /user/create", app.Middleware.CreateStackWithHandler(
+		[]middleware.MiddlewareStack{
+			app.Middleware.SchemaValidatorMiddleware(func() interface{} {
+				return &dto.UserCreateDto{}
+			}),
+		},
+		app.UserController.UserCreate,
+	))
 
-	f.Patch("/user/update", app.Middleware.SchemaValidatorMiddleware(func() interface{} {
-		return &dto.UserUpdateDto{}
-	}), app.Middleware.UserAuthMiddleware, app.UserController.UserUpdateDto)
+	router.Handle("POST /user/login", app.Middleware.CreateStackWithHandler(
+		[]middleware.MiddlewareStack{
+			app.Middleware.SchemaValidatorMiddleware(func() interface{} {
+				return &dto.UserLoginDto{}
+			}),
+		},
+		app.UserController.UserLogin,
+	))
 
-	f.Post("/user/login/verify", app.Middleware.UserAuthMiddleware, app.UserController.UserLoginVerify)
+	router.Handle("PATCH /user/update", app.Middleware.CreateStackWithHandler(
+		[]middleware.MiddlewareStack{
+			app.Middleware.SchemaValidatorMiddleware(func() interface{} {
+				return &dto.UserUpdateDto{}
+			}),
+			app.Middleware.UserAuthMiddleware,
+		},
+		app.UserController.UserUpdateDto,
+	))
 
-	f.Get("/user/reset-password", app.UserController.UserRequestPasswordResetLink)
-	f.Post("/user/reset-password", app.Middleware.SchemaValidatorMiddleware(func() interface{} { return &dto.UserPasswordUpdateDto{} }), app.UserController.UserPasswordUpdate)
+	router.Handle("POST /user/login/verify", app.Middleware.CreateStackWithHandler(
+		[]middleware.MiddlewareStack{app.Middleware.UserAuthMiddleware},
+		app.UserController.UserLoginVerify,
+	))
 
-	f.Get("/user/verify-email", app.UserController.UserVerifyEmailToken)
+	router.Handle("GET /user/reset-password", app.Middleware.CreateStackWithHandler(
+		[]middleware.MiddlewareStack{},
+		app.UserController.UserRequestPasswordResetLink,
+	))
 
-	f.Delete("/user/:id", app.Middleware.UserAuthMiddleware, app.UserController.UserMarkForDeletion)
+	router.Handle("POST /user/reset-password", app.Middleware.CreateStackWithHandler(
+		[]middleware.MiddlewareStack{
+			app.Middleware.SchemaValidatorMiddleware(func() interface{} {
+				return &dto.UserPasswordUpdateDto{}
+			}),
+		},
+		app.UserController.UserPasswordUpdate,
+	))
 
-	f.Patch("/user/:id/password", app.Middleware.SchemaValidatorMiddleware(func() interface{} {
-		return &dto.UserPasswordUpdateDto{}
-	}), app.Middleware.UserAuthMiddleware, app.UserController.UserPasswordUpdate)
+	router.Handle("GET /user/verify-email", app.Middleware.CreateStackWithHandler(
+		[]middleware.MiddlewareStack{},
+		app.UserController.UserVerifyEmailToken,
+	))
 
-	f.Get("/user/logout", app.Middleware.UserAuthMiddleware, app.UserController.UserLogout)
+	router.Handle("DELETE /user/:id", app.Middleware.CreateStackWithHandler(
+		[]middleware.MiddlewareStack{app.Middleware.UserAuthMiddleware},
+		app.UserController.UserMarkForDeletion,
+	))
+
+	router.Handle("PATCH /user/:id/password", app.Middleware.CreateStackWithHandler(
+		[]middleware.MiddlewareStack{
+			app.Middleware.SchemaValidatorMiddleware(func() interface{} {
+				return &dto.UserPasswordUpdateDto{}
+			}),
+			app.Middleware.UserAuthMiddleware,
+		},
+		app.UserController.UserPasswordUpdate,
+	))
+
+	router.Handle("GET /user/logout", app.Middleware.CreateStackWithHandler(
+		[]middleware.MiddlewareStack{app.Middleware.UserAuthMiddleware},
+		app.UserController.UserLogout,
+	))
 
 }

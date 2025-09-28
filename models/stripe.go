@@ -1,7 +1,7 @@
 package models
 
 import (
-	"github.com/gofiber/fiber/v2"
+	"net/http"
 )
 
 type Stripe struct {
@@ -28,7 +28,7 @@ func (s *Stripe) UpdatePaymentStatus(uss *UserSubscriptionStore, orderId string)
 	return UserSubscription{}, nil
 }
 
-func (s *Stripe) VerifyWebhookSignature(*fiber.Ctx) error {
+func (s *Stripe) VerifyWebhookSignature(*http.Request) error {
 	return nil
 }
 

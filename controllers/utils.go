@@ -2,29 +2,33 @@ package controllers
 
 import (
 	"log"
+	"net/http"
 	"time"
 
-	"github.com/21TechLabs/musiclms-backend/models"
-	"github.com/21TechLabs/musiclms-backend/utils"
+	"github.com/21TechLabs/factory-backend/models"
+	"github.com/21TechLabs/factory-backend/utils"
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
 )
 
-func SetLoginTokenAndSendResponse(ctx *fiber.Ctx, user models.User, allowPasswordAndResetToken bool, us *models.UserStore) error {
+func SetLoginTokenAndSendResponse(log *log.Logger, r *http.Request, w http.ResponseWriter, user models.User, allowPasswordAndResetToken bool, us *models.UserStore) {
 
-	appCode := ctx.Query("appCode")
+	appCode := r.URL.Query().Get("appCode")
 
 	if len(user.Email) == 0 {
-		log.Default().Printf("Failed to fetch user \"%v\" because token does not exists!", user.Email)
-		ctx.Cookie(&fiber.Cookie{
+		log.Printf("Failed to fetch user \"%v\" because token does not exists!", user.Email)
+		w.Header().Set("Content-Type", "application/json")
+		// clear the cookie
+		http.SetCookie(w, &http.Cookie{
 			Name:     "token",
 			Value:    "",
 			Expires:  time.Now(),
-			HTTPOnly: true,
+			HttpOnly: true,
 			Secure:   true,
 		})
 
-		return utils.ErrorResponse(ctx, fiber.StatusBadRequest, "failed to login user!")
+		utils.ErrorResponse(log, w, http.StatusBadRequest, []byte("User not found!"))
+		return
 	}
 
 	var expiresAfter time.Time = time.Now().Add(time.Hour * 24 * 5)
@@ -32,14 +36,15 @@ func SetLoginTokenAndSendResponse(ctx *fiber.Ctx, user models.User, allowPasswor
 
 	if err != nil {
 		log.Printf("Failed to create login token for the user %v because an error occured: %v", user.Email, err.Error())
-		return utils.ErrorResponse(ctx, fiber.StatusBadRequest, "Failed to generate login token!")
+		utils.ErrorResponse(log, w, http.StatusBadRequest, []byte("Failed to generate login token!"))
+		return
 	}
 
-	ctx.Cookie(&fiber.Cookie{
+	http.SetCookie(w, &http.Cookie{
 		Name:     "token",
 		Value:    token,
 		Expires:  expiresAfter,
-		HTTPOnly: true,
+		HttpOnly: true,
 		Secure:   true,
 	})
 
@@ -55,12 +60,13 @@ func SetLoginTokenAndSendResponse(ctx *fiber.Ctx, user models.User, allowPasswor
 		if err != nil {
 			if err != gorm.ErrRecordNotFound {
 				log.Printf("Failed to fetch product with app code \"%v\" because an error occured: %v", appCode, err.Error())
-				return utils.ErrorResponse(ctx, fiber.StatusBadRequest, err.Error())
+				utils.ErrorResponse(log, w, http.StatusBadRequest, []byte(err.Error()))
+				return
 			}
 		} else {
 			res["subscription"] = subscription
 		}
 	}
 
-	return ctx.Status(200).JSON(res)
+	utils.ResponseWithJSON(log, w, http.StatusOK, res)
 }

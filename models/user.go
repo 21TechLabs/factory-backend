@@ -11,10 +11,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/21TechLabs/musiclms-backend/dto"
-	"github.com/21TechLabs/musiclms-backend/notifications"
-	"github.com/21TechLabs/musiclms-backend/notifications/templates"
-	"github.com/21TechLabs/musiclms-backend/utils"
+	"github.com/21TechLabs/factory-backend/dto"
+	"github.com/21TechLabs/factory-backend/notifications"
+	"github.com/21TechLabs/factory-backend/notifications/templates"
+	"github.com/21TechLabs/factory-backend/utils"
 	"github.com/kataras/jwt"
 	"gorm.io/gorm"
 )
@@ -67,7 +67,7 @@ func (User) TableName() string {
 	return "users"
 }
 
-func (us *UserStore) UserCreate(user dto.UserCreateDto, isSubdomain bool) (User, error) {
+func (us *UserStore) UserCreate(user dto.UserCreateDto) (User, error) {
 
 	role := UserRoleClient
 

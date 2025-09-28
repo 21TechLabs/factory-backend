@@ -1,45 +1,56 @@
 package middleware
 
 import (
-	"github.com/21TechLabs/musiclms-backend/utils"
-	"github.com/gofiber/fiber/v2"
+	"net/http"
 )
 
-func (m *Middleware) UserAuthMiddleware(c *fiber.Ctx) error {
-	authToken, err := utils.GetToken(c)
+func (m *Middleware) UserAuthMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
-	if err != nil {
-		return utils.ErrorResponse(c, fiber.StatusUnauthorized, "Unauthorized: "+err.Error())
-	}
+		
 
-	secretKey := []byte(utils.GetEnv("JWT_SECRET_KEY", false))
+		// Check if the user is authenticated
+		// if c.Locals("user") != nil {
+		// 	next.ServeHTTP(w, r)
+		// 	return
+		// }
 
-	user, err := m.UserStore.JwtTokenVerifyAndGetUser(authToken, secretKey)
-	if err != nil {
-		return utils.ErrorResponse(c, fiber.StatusUnauthorized, "Unauthorized: "+err.Error())
-	}
+	})
 
-	if user.AccountBlocked {
-		return utils.ErrorResponse(c, fiber.StatusUnauthorized, "Unauthorized: account blocked")
-	}
+	// authToken, err := utils.GetToken(c)
 
-	if user.AccountSuspended {
-		return utils.ErrorResponse(c, fiber.StatusUnauthorized, "Unauthorized: account suspended")
-	}
+	// if err != nil {
+	// 	return utils.ErrorResponse(c, fiber.StatusUnauthorized, "Unauthorized: "+err.Error())
+	// }
 
-	if user.AccountDeleted {
-		return utils.ErrorResponse(c, fiber.StatusUnauthorized, "Unauthorized: account deleted")
-	}
+	// secretKey := []byte(utils.GetEnv("JWT_SECRET_KEY", false))
 
-	if user.MarkedForDeletion {
-		user.MarkedForDeletion = false
-		err := m.UserStore.Update(&user)
-		if err != nil {
-			return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to update user: "+err.Error())
-		}
-	}
+	// user, err := m.UserStore.JwtTokenVerifyAndGetUser(authToken, secretKey)
+	// if err != nil {
+	// 	return utils.ErrorResponse(c, fiber.StatusUnauthorized, "Unauthorized: "+err.Error())
+	// }
 
-	// Pass the user to the next handler (add to context)
-	c.Locals("user", user)
-	return c.Next()
+	// if user.AccountBlocked {
+	// 	return utils.ErrorResponse(c, fiber.StatusUnauthorized, "Unauthorized: account blocked")
+	// }
+
+	// if user.AccountSuspended {
+	// 	return utils.ErrorResponse(c, fiber.StatusUnauthorized, "Unauthorized: account suspended")
+	// }
+
+	// if user.AccountDeleted {
+	// 	return utils.ErrorResponse(c, fiber.StatusUnauthorized, "Unauthorized: account deleted")
+	// }
+
+	// if user.MarkedForDeletion {
+	// 	user.MarkedForDeletion = false
+	// 	err := m.UserStore.Update(&user)
+	// 	if err != nil {
+	// 		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to update user: "+err.Error())
+	// 	}
+	// }
+
+	// // Pass the user to the next handler (add to context)
+	// c.Locals("user", user)
+	// return c.Next()
 }

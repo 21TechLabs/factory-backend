@@ -6,7 +6,7 @@ import (
 	"mime/multipart"
 	"time"
 
-	"github.com/21TechLabs/musiclms-backend/utils"
+	"github.com/21TechLabs/factory-backend/utils"
 	"github.com/minio/minio-go/v7"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"gorm.io/gorm"

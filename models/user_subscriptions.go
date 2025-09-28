@@ -3,7 +3,7 @@ package models
 import (
 	"time"
 
-	"github.com/21TechLabs/musiclms-backend/utils"
+	"github.com/21TechLabs/factory-backend/utils"
 	"gorm.io/gorm"
 )
 

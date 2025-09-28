@@ -3,9 +3,9 @@ package models
 import (
 	"errors"
 	"fmt"
+	"net/http"
 
-	"github.com/21TechLabs/musiclms-backend/utils"
-	"github.com/gofiber/fiber/v2"
+	"github.com/21TechLabs/factory-backend/utils"
 	"gorm.io/gorm"
 )
 
@@ -56,7 +56,7 @@ type PaymentGateway interface {
 	UpdatePaymentStatus(*UserSubscriptionStore, string) (UserSubscription, error)
 	CancelSubscription(string) (UserSubscription, error)
 	GetUserSubscription() (interface{}, error)
-	VerifyWebhookSignature(*fiber.Ctx) error
+	VerifyWebhookSignature(*http.Request) error
 	GetOrderIdFromWebhookRequest([]byte) (string, error)
 	SetUserId(uint)
 	SetUserViaOrderId(*UserSubscriptionStore, string) error

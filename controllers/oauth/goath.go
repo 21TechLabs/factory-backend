@@ -3,17 +3,16 @@ package oauth_controller
 import (
 	"fmt"
 	"log"
+	"net/http"
 	"os"
-	"strings"
 
-	"github.com/21TechLabs/musiclms-backend/controllers"
-	"github.com/21TechLabs/musiclms-backend/dto"
-	"github.com/21TechLabs/musiclms-backend/models"
-	"github.com/21TechLabs/musiclms-backend/utils"
-	"github.com/gofiber/fiber/v2"
+	"github.com/21TechLabs/factory-backend/controllers"
+	"github.com/21TechLabs/factory-backend/dto"
+	"github.com/21TechLabs/factory-backend/models"
+	"github.com/21TechLabs/factory-backend/utils"
 	"github.com/markbates/goth"
+	"github.com/markbates/goth/gothic"
 	"github.com/markbates/goth/providers/discord"
-	"github.com/shareed2k/goth_fiber"
 	"gorm.io/gorm"
 )
 
@@ -37,15 +36,16 @@ func init() {
 	)
 }
 
-func (oac *OAuthController) GothicCallback(ctx *fiber.Ctx) error {
-	gothicUser, err := goth_fiber.CompleteUserAuth(ctx)
+func (oac *OAuthController) GothicCallback(w http.ResponseWriter, r *http.Request) {
+	gothicUser, err := gothic.CompleteUserAuth(w, r)
 
 	if err != nil {
 		log.Printf("OAuth GothicCallback error go_fiber.CompleteUserAuth: %v\n", err)
-		return utils.ErrorResponse(ctx, fiber.StatusInternalServerError, err.Error())
+		utils.ErrorResponse(oac.Logger, w, http.StatusInternalServerError, []byte(err.Error()))
+		return
 	}
 
-	var provider = ctx.Params("provider")
+	var provider = r.PathValue("provider")
 	var userCreate dto.UserCreateDto
 
 	switch provider {
@@ -55,7 +55,8 @@ func (oac *OAuthController) GothicCallback(ctx *fiber.Ctx) error {
 
 		if err != nil {
 			log.Printf("OAuth GothicCallback error discordUserGetDetail: %v\n", err)
-			return utils.ErrorResponse(ctx, fiber.StatusInternalServerError, err.Error())
+			utils.ErrorResponse(oac.Logger, w, http.StatusInternalServerError, []byte(err.Error()))
+			return
 		}
 
 		userCreate = dto.UserCreateDto{
@@ -77,27 +78,28 @@ func (oac *OAuthController) GothicCallback(ctx *fiber.Ctx) error {
 
 	if len(userCreate.Email) == 0 {
 		log.Printf("OAuth GothicCallback error Email not found for provider %s\n", provider)
-		return utils.ErrorResponse(ctx, fiber.StatusBadRequest, "Email not found")
+		utils.ErrorResponse(oac.Logger, w, http.StatusInternalServerError, []byte("Email not found"))
+		return
 	}
 
 	user, err := oac.UserStore.UserGetByEmail(userCreate.Email)
 
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
-			// create a new user
-			// user role
-
-			var isSubdomain = len(strings.Split(ctx.Get("Origin"), ".")) == 3
-
-			user, err = oac.UserStore.UserCreate(userCreate, isSubdomain)
+			user, err = oac.UserStore.UserCreate(userCreate)
 			if err != nil {
-				return utils.ErrorResponse(ctx, fiber.StatusBadRequest, err.Error())
+
+				log.Printf("OAuth GothicCallback error UserCreate: %v\n", err)
+				utils.ErrorResponse(oac.Logger, w, http.StatusInternalServerError, []byte(err.Error()))
+				return
 			}
 		} else {
 			log.Printf("OAuth GothicCallback error UserGetByEmail: %v\n", err)
-			return utils.ErrorResponse(ctx, fiber.StatusBadRequest, err.Error())
+			utils.ErrorResponse(oac.Logger, w, http.StatusInternalServerError, []byte(err.Error()))
+			return
 		}
 	}
 
-	return controllers.SetLoginTokenAndSendResponse(ctx, user, false, oac.UserStore)
+	controllers.SetLoginTokenAndSendResponse(oac.Logger, r, w, user, false, oac.UserStore)
+	return
 }

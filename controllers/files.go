@@ -3,10 +3,10 @@ package controllers
 import (
 	"fmt"
 	"log"
+	"net/http"
 
-	"github.com/21TechLabs/musiclms-backend/models"
-	"github.com/21TechLabs/musiclms-backend/utils"
-	"github.com/gofiber/fiber/v2"
+	"github.com/21TechLabs/factory-backend/models"
+	"github.com/21TechLabs/factory-backend/utils"
 )
 
 type FileController struct {
@@ -23,30 +23,27 @@ func NewFileController(log *log.Logger, fs *models.FileStore, us *models.UserSto
 	}
 }
 
-func (fc *FileController) FileUpload(c *fiber.Ctx) error {
-
-	currentUser, ok := c.Locals("user").(models.User)
+func (fc *FileController) FileUpload(w http.ResponseWriter, r *http.Request) {
+	currentUser, ok := r.Context().Value(utils.UserContextKey).(*models.User)
 
 	if !ok {
-		return utils.ErrorResponse(c, fiber.StatusUnauthorized, "user not found")
+		utils.ErrorResponse(fc.Logger, w, http.StatusUnauthorized, []byte("User not found"))
+		return
 	}
 
-	form, err := c.MultipartForm()
-
-	if err != nil {
-		return utils.ErrorResponse(c, fiber.StatusBadRequest, err.Error())
-	}
+	form := r.MultipartForm
 
 	files := form.File["files"]
-
 	title := form.Value["title"]
 
 	if len(files) == 0 {
-		return utils.ErrorResponse(c, fiber.StatusBadRequest, "no file uploaded")
+		utils.ErrorResponse(fc.Logger, w, http.StatusBadRequest, []byte("No file uploaded"))
+		return
 	}
 
 	if len(title) == 0 {
-		return utils.ErrorResponse(c, fiber.StatusBadRequest, "title is required")
+		utils.ErrorResponse(fc.Logger, w, http.StatusBadRequest, []byte("Title is required"))
+		return
 	}
 
 	var fileUploads []models.FileUpload
@@ -58,44 +55,46 @@ func (fc *FileController) FileUpload(c *fiber.Ctx) error {
 		})
 	}
 
-	uploadedFiles, err := fc.UserStore.UploadFile(&currentUser, fileUploads)
+	uploadedFiles, err := fc.UserStore.UploadFile(currentUser, fileUploads)
 
 	if err != nil {
-		return utils.ErrorResponse(c, fiber.StatusBadRequest, err.Error())
+		utils.ErrorResponse(fc.Logger, w, http.StatusBadRequest, []byte(err.Error()))
+		return
 	}
 
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+	utils.ResponseWithJSON(fc.Logger, w, http.StatusOK, utils.Map{
 		"success": true,
 		"files":   uploadedFiles,
 	})
 }
 
-func (fc *FileController) FileStreamS3(c *fiber.Ctx) error {
-	fileKey := c.Params("fileKey")
+func (fc *FileController) FileStreamS3(w http.ResponseWriter, r *http.Request) {
+	fileKey := r.PathValue("fileKey")
 
 	if fileKey == "" {
-		return utils.ErrorResponse(c, fiber.StatusBadRequest, "file id is required")
+		utils.ErrorResponse(fc.Logger, w, http.StatusBadRequest, []byte("file id is required"))
+		return
 	}
 
 	file, err := fc.FileStore.FileGetBy(map[string]interface{}{"key": fileKey})
 	if err != nil {
-		return utils.ErrorResponse(c, fiber.StatusNotFound, "file not found")
+		utils.ErrorResponse(fc.Logger, w, http.StatusNotFound, []byte("file not found"))
+		return
 	}
 
 	fileObject, err := file.GetObject()
 
 	if err != nil {
-		return c.Status(fiber.StatusNotFound).SendString(err.Error())
+		utils.ErrorResponse(fc.Logger, w, http.StatusNotFound, []byte(err.Error()))
+		return
 	}
 	defer fileObject.Close()
-	c.Response().Header.Set("Content-Type", file.Type)
-	c.Response().Header.Set("Content-Disposition", "inline; filename="+fileKey) // Or "attachment; filename=" for download
-	c.Response().Header.Set("Content-Length", fmt.Sprint(file.Size))
-	c.Response().Header.Set("Transfer-Encoding", "chunked")
 
-	// if err := c.SendStream(fileObject, 2048); err != nil {
-	// 	return utils.ErrorResponse(c, fiber.StatusInternalServerError, "failed to stream file")
-	// }
+	w.Header().Set("Content-Type", file.Type)
+	w.Header().Set("Content-Disposition", fmt.Sprintf("inline; filename=%s", fileKey)) // Or "attachment; filename=" for download
+	w.Header().Set("Content-Length", fmt.Sprint(file.Size))
+	w.Header().Set("Transfer-Encoding", "chunked")
+
 	fileByte := make([]byte, 2048) // Adjust the size as needed
 
 	for {
@@ -104,14 +103,16 @@ func (fc *FileController) FileStreamS3(c *fiber.Ctx) error {
 			if err.Error() == "EOF" {
 				break // End of file reached
 			}
-			return utils.ErrorResponse(c, fiber.StatusInternalServerError, "failed to read file")
+			utils.ErrorResponse(fc.Logger, w, http.StatusInternalServerError, []byte("failed to read file"))
+			return
 		}
 		if n == 0 {
 			break // No more data to read
 		}
-		if _, err := c.Write(fileByte[:n]); err != nil {
-			return utils.ErrorResponse(c, fiber.StatusInternalServerError, "failed to write file")
+		if _, err := w.Write(fileByte[:n]); err != nil {
+			utils.ErrorResponse(fc.Logger, w, http.StatusInternalServerError, []byte("failed to write file"))
+			return
 		}
 	}
-	return nil
+	return
 }

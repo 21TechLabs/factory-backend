@@ -1,12 +1,21 @@
 package routes
 
 import (
-	"github.com/21TechLabs/musiclms-backend/app"
-	"github.com/gofiber/fiber/v2"
-	"github.com/shareed2k/goth_fiber"
+	"net/http"
+
+	"github.com/21TechLabs/factory-backend/app"
+	"github.com/21TechLabs/factory-backend/middleware"
+	"github.com/markbates/goth/gothic"
 )
 
-func SetupOAuth(f *fiber.App, app *app.Application) {
-	f.Get("/user/oauth2/:provider/login", goth_fiber.BeginAuthHandler)
-	f.Get("/user/oauth2/:provider/login/callback", app.OAuthController.GothicCallback)
+func SetupOAuth(router *http.ServeMux, app *app.Application) {
+	router.Handle("GET /user/oauth2/:provider/login", app.Middleware.CreateStackWithHandler(
+		[]middleware.MiddlewareStack{},
+		gothic.BeginAuthHandler,
+	))
+
+	router.Handle("GET /user/oauth2/:provider/login/callback", app.Middleware.CreateStackWithHandler(
+		[]middleware.MiddlewareStack{app.Middleware.UserAuthMiddleware},
+		app.OAuthController.GothicCallback,
+	))
 }

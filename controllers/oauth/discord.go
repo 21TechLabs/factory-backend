@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/21TechLabs/musiclms-backend/dto"
-	"github.com/21TechLabs/musiclms-backend/utils"
+	"github.com/21TechLabs/factory-backend/dto"
+	"github.com/21TechLabs/factory-backend/utils"
 )
 
 type DiscordConfig struct {

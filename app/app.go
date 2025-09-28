@@ -5,14 +5,14 @@ import (
 	"log"
 	"os"
 
-	"github.com/21TechLabs/musiclms-backend/controllers"
-	oauth_controller "github.com/21TechLabs/musiclms-backend/controllers/oauth"
-	payments_controller "github.com/21TechLabs/musiclms-backend/controllers/payments"
-	products_controller "github.com/21TechLabs/musiclms-backend/controllers/products"
-	"github.com/21TechLabs/musiclms-backend/database"
-	"github.com/21TechLabs/musiclms-backend/middleware"
-	"github.com/21TechLabs/musiclms-backend/models"
-	"github.com/21TechLabs/musiclms-backend/utils"
+	"github.com/21TechLabs/factory-backend/controllers"
+	oauth_controller "github.com/21TechLabs/factory-backend/controllers/oauth"
+	payments_controller "github.com/21TechLabs/factory-backend/controllers/payments"
+	products_controller "github.com/21TechLabs/factory-backend/controllers/products"
+	"github.com/21TechLabs/factory-backend/database"
+	"github.com/21TechLabs/factory-backend/middleware"
+	"github.com/21TechLabs/factory-backend/models"
+	"github.com/21TechLabs/factory-backend/utils"
 	"gorm.io/gorm"
 )
 
@@ -25,6 +25,7 @@ type Application struct {
 	ProductPlanController *products_controller.ProductPlanController
 	PaymentsController    *payments_controller.PaymentsController
 	OAuthController       *oauth_controller.OAuthController
+	HealthCheckController *controllers.HealthCheckController
 }
 
 func NewApplication() (*Application, error) {
@@ -82,6 +83,7 @@ func NewApplication() (*Application, error) {
 	productPlanController := products_controller.NewProductPlanController(logger, productPlanStore, userStore)
 	paymentsController := payments_controller.NewPaymentsController(logger, productPlanStore, userStore, userSubscriptionStore)
 	oauthController := oauth_controller.NewOAuthController(logger, userStore)
+	healthCheckController := controllers.NewHealthCheckController(logger)
 
 	app := &Application{
 		Logger:                logger,
@@ -92,6 +94,7 @@ func NewApplication() (*Application, error) {
 		ProductPlanController: productPlanController,
 		PaymentsController:    paymentsController,
 		OAuthController:       oauthController,
+		HealthCheckController: healthCheckController,
 	}
 
 	return app, nil

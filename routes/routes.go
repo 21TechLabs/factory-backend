@@ -1,25 +1,30 @@
 package routes
 
 import (
-	"github.com/21TechLabs/musiclms-backend/app"
-	fiber "github.com/gofiber/fiber/v2"
+	"net/http"
+
+	"github.com/21TechLabs/factory-backend/app"
+	"github.com/21TechLabs/factory-backend/middleware"
 )
 
-func SetupRoutes(f *fiber.App, app *app.Application) {
-	SetupUser(f, app)
-	SetupFile(f, app)
-	SetupOAuth(f, app)
-	SetupPayments(f, app)
-	SetupProduct(f, app)
+func SetupRoutes(app *app.Application) *http.ServeMux {
+	router := http.NewServeMux()
 
-	f.Get("/", func(c *fiber.Ctx) error {
-		return c.SendString("Welcome to the Factory Backend API!")
-	})
+	router.Handle("GET /", app.Middleware.CreateStackWithHandler(
+		[]middleware.MiddlewareStack{},
+		app.HealthCheckController.HealthCheck,
+	))
 
-	f.Get("/health", func(c *fiber.Ctx) error {
-		return c.JSON(fiber.Map{
-			"status":  "UP",
-			"message": "API is running smoothly",
-		})
-	})
+	router.Handle("GET /health", app.Middleware.CreateStackWithHandler(
+		[]middleware.MiddlewareStack{},
+		app.HealthCheckController.HealthCheck,
+	))
+
+	SetupUser(router, app)
+	SetupFile(router, app)
+	SetupOAuth(router, app)
+	SetupPayments(router, app)
+	SetupProduct(router, app)
+
+	return router
 }

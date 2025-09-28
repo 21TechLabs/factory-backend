@@ -1,12 +1,26 @@
 package routes
 
 import (
-	"github.com/21TechLabs/musiclms-backend/app"
-	"github.com/gofiber/fiber/v2"
+	"net/http"
+
+	"github.com/21TechLabs/factory-backend/app"
+	"github.com/21TechLabs/factory-backend/middleware"
 )
 
-func SetupProduct(f *fiber.App, app *app.Application) {
-	f.Get("/product/:appCode", app.ProductPlanController.GetProductByAppCode)
-	f.Get("/product/:appCode/@me", app.Middleware.UserAuthMiddleware, app.ProductPlanController.GetUsersActiveProductSubsctiptionByAppCode)
-	f.Get("/product/:appCode/plans", app.PaymentsController.GetProductPlansByAppCode)
+func SetupProduct(router *http.ServeMux, app *app.Application) {
+
+	router.Handle("GET /product/:appCode", app.Middleware.CreateStackWithHandler(
+		[]middleware.MiddlewareStack{},
+		app.ProductPlanController.GetProductByAppCode,
+	))
+
+	router.Handle("GET /product/:appCode/@me", app.Middleware.CreateStackWithHandler(
+		[]middleware.MiddlewareStack{app.Middleware.UserAuthMiddleware},
+		app.ProductPlanController.GetUsersActiveProductSubsctiptionByAppCode,
+	))
+
+	router.Handle("GET /product/:appCode/plans", app.Middleware.CreateStackWithHandler(
+		[]middleware.MiddlewareStack{},
+		app.PaymentsController.GetProductPlansByAppCode,
+	))
 }

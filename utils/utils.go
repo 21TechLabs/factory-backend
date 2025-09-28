@@ -4,18 +4,18 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"regexp"
 	"strings"
 
-	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/log"
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 	"github.com/joho/godotenv"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 )
-
-type ContextKey string
 
 func LoadEnv() error {
 	return godotenv.Load()
@@ -50,11 +50,16 @@ func GetRegenTime(traitHealth int, health int) float64 {
 	return float64(traitHealth-health) / regenRate
 }
 
-func GetToken(c *fiber.Ctx) (string, error) {
-	authToken := c.Cookies("token")
+func GetToken(r *http.Request) (string, error) {
+	cookie, err := r.Cookie("token")
+
+	if err != nil {
+		return "", fmt.Errorf("token not found in cookies: %w", err)
+	}
+	authToken := cookie.Value
 
 	if authToken == "" {
-		authToken = c.Get("Authorization")
+		authToken = r.Header.Get("Authorization")
 		if authToken != "" {
 			if len(authToken) > 10 {
 				authToken = authToken[7:]
@@ -66,8 +71,9 @@ func GetToken(c *fiber.Ctx) (string, error) {
 		var payload = struct {
 			Token string `json:"token"`
 		}{}
-		if err := c.BodyParser(&payload); err != nil {
-			return "", RaiseError{Message: "Token not found in headers or body"}
+		err = json.NewDecoder(r.Body).Decode(&payload)
+		if err != nil {
+			return "", fmt.Errorf("error decoding request body: %w", err)
 		}
 		authToken = payload.Token
 	}
@@ -76,11 +82,6 @@ func GetToken(c *fiber.Ctx) (string, error) {
 		return "", RaiseError{Message: "Token not found in headers or body"}
 	}
 	return authToken, nil
-}
-
-func IsValidObjectID(id string) (primitive.ObjectID, bool) {
-	obj, err := primitive.ObjectIDFromHex(id)
-	return obj, err == nil
 }
 
 func ValidateHeaderHMACSha256(body []byte, secret string, signature string) bool {
@@ -112,4 +113,40 @@ func IsValidOrigin(origin, whitelistOrigins string) bool {
 	}
 
 	return false
+}
+
+func GenerateRandomUUID() string {
+	return uuid.NewString()
+}
+
+func GetJwtSecret() []byte {
+	secret := GetEnv("JWT_SECRET", false)
+	return []byte(secret)
+}
+
+func GenerateJWT(claim jwt.Claims, secret []byte) (string, error) {
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claim)
+	return token.SignedString(secret)
+}
+
+func ParseJWT(tokenString string, secret []byte) (*jwt.Token, error) {
+	return jwt.ParseWithClaims(tokenString, &jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
+		return secret, nil
+	})
+}
+
+func StructToBytes(data interface{}) ([]byte, error) {
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		return nil, err
+	}
+	return jsonData, nil
+}
+
+func ParseBytesToStruct(data []byte, out interface{}) error {
+	err := json.Unmarshal(data, out)
+	if err != nil {
+		return err
+	}
+	return nil
 }

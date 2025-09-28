@@ -6,7 +6,7 @@ import (
 	"net/smtp"
 	"text/template"
 
-	"github.com/21TechLabs/musiclms-backend/utils"
+	"github.com/21TechLabs/factory-backend/utils"
 )
 
 var emailFrom string
