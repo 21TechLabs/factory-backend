@@ -8,7 +8,6 @@ import (
 
 	"github.com/21TechLabs/factory-backend/utils"
 	"github.com/minio/minio-go/v7"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"gorm.io/gorm"
 )
 
@@ -39,7 +38,7 @@ type FileUpload struct {
 	File  multipart.FileHeader
 }
 
-func (fs *FileStore) FileGetByID(id primitive.ObjectID) (*File, error) {
+func (fs *FileStore) FileGetByID(id uint) (*File, error) {
 	var file File
 	result := fs.DB.Model(&file).Where("id = ?", id).First(&file)
 	if result.Error != nil {

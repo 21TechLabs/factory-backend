@@ -6,12 +6,12 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"regexp"
 	"strings"
 
-	"github.com/gofiber/fiber/v2/log"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/joho/godotenv"
@@ -104,7 +104,7 @@ func IsValidOrigin(origin, whitelistOrigins string) bool {
 	for _, whitelistedOrigin := range whitelist {
 		stringMatchRegex, err := regexp.MatchString(whitelistedOrigin, origin)
 		if err != nil {
-			log.Warnf("Error matching origin %s with regex %s: %v", origin)
+			log.Default().Printf("Error matching origin %s with regex %s: %v", origin, whitelistedOrigin, err)
 			continue
 		}
 		if strings.TrimSpace(whitelistedOrigin) == "*" || stringMatchRegex {

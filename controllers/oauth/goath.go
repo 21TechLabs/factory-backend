@@ -101,5 +101,4 @@ func (oac *OAuthController) GothicCallback(w http.ResponseWriter, r *http.Reques
 	}
 
 	controllers.SetLoginTokenAndSendResponse(oac.Logger, r, w, user, false, oac.UserStore)
-	return
 }

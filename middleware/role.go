@@ -25,7 +25,6 @@ func (m *Middleware) HasRoleMiddleware(whiteListedRoles []models.UserRole) IMidd
 				}
 			}
 			utils.ErrorResponse(m.Logger, w, http.StatusForbidden, []byte("Forbidden: insufficient permissions"))
-			return
 		})
 	}
 }

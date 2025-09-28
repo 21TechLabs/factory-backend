@@ -114,5 +114,4 @@ func (fc *FileController) FileStreamS3(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	return
 }
