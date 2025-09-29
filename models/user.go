@@ -24,7 +24,6 @@ type UserRole int
 const (
 	UserRoleAdmin  UserRole = iota + 1 // 1
 	UserRoleClient UserRole = iota + 1 // 2
-	// add your userroles here
 )
 
 type UserStore struct {
@@ -55,9 +54,7 @@ type User struct {
 	DeleteAccountAfter     time.Time `gorm:"column:delete_account_after" json:"deleteAccountAfter"`
 	AccountDeleted         bool      `gorm:"column:account_deleted" json:"accountDeleted"`
 	AccountCreated         bool      `gorm:"column:account_created" json:"accountCreated"`
-	CoinBalance            int64     `gorm:"column:coin_balance" json:"coinBalance"`
-	RedirectURL            string    `gorm:"column:redirect_url" json:"redirectUrl"`
-	OnboardingDone         bool      `gorm:"column:onboarding_done" json:"onboardingDone"`
+	Tokens                 int64     `gorm:"column:tokens" json:"tokens"`
 	Files                  []File    `gorm:"foreignKey:UserID;references:ID" json:"files"`
 }
 
@@ -66,10 +63,6 @@ func (User) TableName() string {
 }
 
 func (us *UserStore) UserCreate(user dto.UserCreateDto) (User, error) {
-
-	role := UserRoleClient
-
-	var OnboardingDone = false
 
 	var userCount int64
 	result := us.DB.Model(&User{}).Where("email = ?", user.Email).Count(&userCount)
@@ -86,11 +79,10 @@ func (us *UserStore) UserCreate(user dto.UserCreateDto) (User, error) {
 
 	var newUser = User{
 		Name:            user.Name,
-		Role:            role,
+		Role:            UserRoleClient,
 		Email:           user.Email,
 		OptedInForEmail: true,
 		AccountCreated:  true,
-		OnboardingDone:  OnboardingDone,
 	}
 	var err error
 	newUser.Password, err = SaltPassword(user.Password, "")
@@ -99,16 +91,16 @@ func (us *UserStore) UserCreate(user dto.UserCreateDto) (User, error) {
 		return User{}, err
 	}
 
-	// send email verification msg
-	err = us.SendEmailVerifyEmail(&newUser)
-	if err != nil {
-		return User{}, err
-	}
-
 	result = us.DB.Create(&newUser)
 
 	if result.Error != nil {
 		return User{}, result.Error
+	}
+
+	// send email verification msg
+	err = us.SendEmailVerifyEmail(&newUser)
+	if err != nil {
+		return User{}, err
 	}
 
 	return newUser, nil
