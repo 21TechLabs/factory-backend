@@ -8,12 +8,9 @@ import (
 	"github.com/21TechLabs/factory-backend/models"
 	"github.com/21TechLabs/factory-backend/utils"
 	"github.com/gofiber/fiber/v2"
-	"gorm.io/gorm"
 )
 
 func SetLoginTokenAndSendResponse(log *log.Logger, r *http.Request, w http.ResponseWriter, user models.User, allowPasswordAndResetToken bool, us *models.UserStore) {
-
-	appCode := r.URL.Query().Get("appCode")
 
 	if len(user.Email) == 0 {
 		log.Printf("Failed to fetch user \"%v\" because token does not exists!", user.Email)
@@ -52,20 +49,6 @@ func SetLoginTokenAndSendResponse(log *log.Logger, r *http.Request, w http.Respo
 		"token":   token,
 		"user":    us.GetDetails(&user, allowPasswordAndResetToken),
 		"success": true,
-	}
-
-	if len(appCode) > 0 {
-		subscription, err := us.GetActiveAppSubscriptionByAppCode(&user, appCode)
-
-		if err != nil {
-			if err != gorm.ErrRecordNotFound {
-				log.Printf("Failed to fetch product with app code \"%v\" because an error occured: %v", appCode, err.Error())
-				utils.ErrorResponse(log, w, http.StatusBadRequest, []byte(err.Error()))
-				return
-			}
-		} else {
-			res["subscription"] = subscription
-		}
 	}
 
 	utils.ResponseWithJSON(log, w, http.StatusOK, res)
