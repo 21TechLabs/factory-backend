@@ -7,6 +7,7 @@ import (
 
 	"github.com/21TechLabs/factory-backend/controllers"
 	oauth_controller "github.com/21TechLabs/factory-backend/controllers/oauth"
+	payments_controller "github.com/21TechLabs/factory-backend/controllers/payments"
 	"github.com/21TechLabs/factory-backend/database"
 	"github.com/21TechLabs/factory-backend/middleware"
 	"github.com/21TechLabs/factory-backend/models"
@@ -22,6 +23,7 @@ type Application struct {
 	FileController        *controllers.FileController
 	OAuthController       *oauth_controller.OAuthController
 	HealthCheckController *controllers.HealthCheckController
+	PaymentPlanController *payments_controller.PaymentPlanController
 }
 
 func NewApplication() (*Application, error) {
@@ -52,6 +54,8 @@ func NewApplication() (*Application, error) {
 	var modelsToMigrate = []interface{}{
 		models.User{},
 		models.File{},
+		models.PaymentPlan{},
+		models.Transaction{},
 	}
 
 	for _, model := range modelsToMigrate {
@@ -64,6 +68,7 @@ func NewApplication() (*Application, error) {
 	// store initialization
 	fileStore := models.NewFileStore(db)
 	userStore := models.NewUserStore(db, fileStore)
+	paymentPlanStore := models.NewProductPlanStore(db)
 
 	// middleware initialization
 	middleware := middleware.NewMiddleware(logger, userStore)
@@ -73,6 +78,7 @@ func NewApplication() (*Application, error) {
 	fileController := controllers.NewFileController(logger, fileStore, userStore)
 	oauthController := oauth_controller.NewOAuthController(logger, userStore)
 	healthCheckController := controllers.NewHealthCheckController(logger)
+	paymentPlanController := payments_controller.NewPaymentPlanController(logger, paymentPlanStore)
 
 	app := &Application{
 		Logger:                logger,
@@ -82,6 +88,7 @@ func NewApplication() (*Application, error) {
 		FileController:        fileController,
 		OAuthController:       oauthController,
 		HealthCheckController: healthCheckController,
+		PaymentPlanController: paymentPlanController,
 	}
 
 	return app, nil

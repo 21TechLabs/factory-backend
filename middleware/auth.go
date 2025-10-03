@@ -49,7 +49,7 @@ func (m *Middleware) UserAuthMiddleware(next http.Handler) http.Handler {
 		}
 
 		ctx := r.Context()
-		ctx = context.WithValue(ctx, utils.UserContextKey, user)
+		ctx = context.WithValue(ctx, utils.UserContextKey, &user)
 		r = r.WithContext(ctx)
 		next.ServeHTTP(w, r)
 	})

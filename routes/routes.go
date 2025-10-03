@@ -23,6 +23,7 @@ func SetupRoutes(app *app.Application) *http.ServeMux {
 	SetupUser(router, app)
 	SetupFile(router, app)
 	SetupOAuth(router, app)
+	SetupProductPlans(router, app)
 
 	return router
 }

@@ -53,10 +53,14 @@ func GetRegenTime(traitHealth int, health int) float64 {
 func GetToken(r *http.Request) (string, error) {
 	cookie, err := r.Cookie("token")
 
-	if err != nil {
+	if err != nil && err != http.ErrNoCookie {
 		return "", fmt.Errorf("token not found in cookies: %w", err)
 	}
-	authToken := cookie.Value
+	var authToken string
+
+	if cookie != nil {
+		authToken = cookie.Value
+	}
 
 	if authToken == "" {
 		authToken = r.Header.Get("Authorization")

@@ -5,17 +5,30 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/21TechLabs/factory-backend/dto"
 	"github.com/21TechLabs/factory-backend/utils"
 	"github.com/go-playground/validator/v10"
 )
 
-func (m *Middleware) SchemaValidatorMiddleware(schemaFunc func() interface{}) func(next http.Handler) http.Handler {
+func (m *Middleware) SchemaValidatorMiddleware(schemaKey dto.DtoMapKey) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// get content type
 			contentType := r.Header.Get("Content-Type")
 
+			schemaFunc, ok := dto.DTOMap[schemaKey]
+
+			if !ok {
+				utils.ErrorResponse(m.Logger, w, http.StatusInternalServerError, []byte("Schema not found"))
+				return
+			}
+
 			body := schemaFunc()
+
+			if body == nil {
+				utils.ErrorResponse(m.Logger, w, http.StatusInternalServerError, []byte("Failed to create schema instance"))
+				return
+			}
 
 			switch contentType {
 			case "application/json":
@@ -53,7 +66,11 @@ func (m *Middleware) SchemaValidatorMiddleware(schemaFunc func() interface{}) fu
 			}
 
 			// attach body to request context
-			ctx := context.WithValue(r.Context(), utils.SchemaValidatorContextKey, body)
+
+			// ctx := context.WithValue(r.Context(), utils.SchemaValidatorContextKey, body)
+			// r = r.WithContext(ctx)
+			ctx := r.Context()
+			ctx = context.WithValue(ctx, utils.SchemaValidatorContextKey, body)
 			r = r.WithContext(ctx)
 
 			next.ServeHTTP(w, r)
