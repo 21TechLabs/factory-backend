@@ -8,6 +8,11 @@ import (
 	"github.com/21TechLabs/factory-backend/middleware"
 )
 
+// SetupUser registers user-related HTTP routes on the provided router,
+// composing each route's handler with middleware from the application (for example, schema validation and authentication).
+//
+// router is the http.ServeMux to register routes on.
+// app provides the controllers and middleware used to build each route's handler.
 func SetupUser(router *http.ServeMux, app *app.Application) {
 
 	router.Handle("POST /user/create", app.Middleware.CreateStackWithHandler(

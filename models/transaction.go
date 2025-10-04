@@ -9,6 +9,7 @@ type TransactionStore struct {
 	DB *gorm.DB
 }
 
+// NewTransactionStore creates a TransactionStore using the provided gorm.DB as its database connection.
 func NewTransactionStore(db *gorm.DB) *TransactionStore {
 	return &TransactionStore{DB: db}
 }

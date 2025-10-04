@@ -14,6 +14,7 @@ type ProductPlanStore struct {
 	TransactionStore *TransactionStore
 }
 
+// NewProductPlanStore creates a ProductPlanStore with the provided gorm.DB and an initialized TransactionStore.
 func NewProductPlanStore(db *gorm.DB) *ProductPlanStore {
 	return &ProductPlanStore{DB: db, TransactionStore: NewTransactionStore(db)}
 }

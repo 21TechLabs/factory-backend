@@ -16,6 +16,8 @@ type PaymentPlanController struct {
 	ProductPlanStore *models.ProductPlanStore
 }
 
+// NewPaymentPlanController creates a PaymentPlanController configured with the provided logger and product plan store.
+// The logger is used for request-related logging; store provides persistence operations for payment plans.
 func NewPaymentPlanController(logger *log.Logger, store *models.ProductPlanStore) *PaymentPlanController {
 	return &PaymentPlanController{ProductPlanStore: store, Logger: logger}
 }
