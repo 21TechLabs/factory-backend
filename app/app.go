@@ -54,7 +54,7 @@ func NewApplication() (*Application, error) {
 	var modelsToMigrate = []interface{}{
 		models.User{},
 		models.File{},
-		models.PaymentPlan{},
+		models.ProductPlan{},
 		models.Transaction{},
 	}
 
@@ -68,7 +68,7 @@ func NewApplication() (*Application, error) {
 	// store initialization
 	fileStore := models.NewFileStore(db)
 	userStore := models.NewUserStore(db, fileStore)
-	paymentPlanStore := models.NewProductPlanStore(db)
+	paymentPlanStore := models.NewProductPlanStore(db, userStore)
 
 	// middleware initialization
 	middleware := middleware.NewMiddleware(logger, userStore)

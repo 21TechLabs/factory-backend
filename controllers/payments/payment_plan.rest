@@ -1,19 +1,4 @@
-# type PaymentPlanCreate struct {
-# 	PlanName         string            `json:"planName" validate:"required"`
-# 	PlanDescription  string            `json:"planDescription" validate:"required"`
-# 	PlanPrice        float64           `json:"planPrice" validate:"required gt=0"`
-# 	PlanCurrency     utils.Currency    `json:"planCurrency" validate:"required oneof='USD EUR INR'"`
-# 	PlanDuration     time.Duration     `json:"planDuration" validate:"required"`
-# 	PlanType         utils.PlanType    `json:"planType" validate:"required oneof='subscription one_time'"`
-# 	Tokens           int64             `json:"tokens" validate:"required gte=0"`
-# 	IsActive         bool              `json:"isActive" validate:"required"`
-# 	Features         utils.StringSlice `json:"features" validate:"required dive,required"`
-# 	PaymentGatewayID utils.JSONMap     `json:"paymentGatewayId" validate:"required dive,required"`
-# }\
-
-
-
-
+###
 POST http://localhost:8000/products/create
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJJRCI6MCwiQ3JlYXRlZEF0IjoiMjAyNS0xMC0wNFQwMTozODoyOS44MDQwNDMrMDU6MzAiLCJVcGRhdGVkQXQiOiIyMDI1LTEwLTA0VDAxOjM4OjI5LjgwNDA0MyswNTozMCIsIkRlbGV0ZWRBdCI6bnVsbCwiaWQiOjEsIm5hbWUiOiJKb2huIERvZSIsInJvbGUiOjIsImVtYWlsIjoidGVzdDJAZ21haWwuY29tIiwicHJvZmlsZVBpY1VSSSI6IiIsImVtYWlsVmVyaWZpZWQiOmZhbHNlLCJwYXNzd29yZFRyaWVzIjowLCJvcHRlZEluRm9yRW1haWwiOnRydWUsImFjY291bnRTdXNwZW5kZWQiOmZhbHNlLCJhY2NvdW50QmxvY2tlZCI6ZmFsc2UsIm1hcmtlZEZvckRlbGV0aW9uIjpmYWxzZSwiZGVsZXRlQWNjb3VudEFmdGVyIjoiMDAwMS0wMS0wMVQwNTo1MzoyOCswNTo1MyIsImFjY291bnREZWxldGVkIjpmYWxzZSwiYWNjb3VudENyZWF0ZWQiOnRydWUsInRva2VucyI6MCwiZmlsZXMiOm51bGwsImlhdCI6MTc1OTUyMzgwMiwiZXhwIjoxNzYwMTI4NjAyfQ.l0zjuPfsCrwouTvZcvZqMuP2Bw7NE5FrocxSoQ_yaP8
 content-type: application/json
@@ -48,3 +33,7 @@ content-type: application/json
     "features": [],
     "paymentGatewayId": {}
 }
+
+###
+GET http://localhost:8000/products/1
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJJRCI6MCwiQ3JlYXRlZEF0IjoiMjAyNS0xMC0wNFQwMTozODoyOS44MDQwNDMrMDU6MzAiLCJVcGRhdGVkQXQiOiIyMDI1LTEwLTA0VDAxOjM4OjI5LjgwNDA0MyswNTozMCIsIkRlbGV0ZWRBdCI6bnVsbCwiaWQiOjEsIm5hbWUiOiJKb2huIERvZSIsInJvbGUiOjIsImVtYWlsIjoidGVzdDJAZ21haWwuY29tIiwicHJvZmlsZVBpY1VSSSI6IiIsImVtYWlsVmVyaWZpZWQiOmZhbHNlLCJwYXNzd29yZFRyaWVzIjowLCJvcHRlZEluRm9yRW1haWwiOnRydWUsImFjY291bnRTdXNwZW5kZWQiOmZhbHNlLCJhY2NvdW50QmxvY2tlZCI6ZmFsc2UsIm1hcmtlZEZvckRlbGV0aW9uIjpmYWxzZSwiZGVsZXRlQWNjb3VudEFmdGVyIjoiMDAwMS0wMS0wMVQwNTo1MzoyOCswNTo1MyIsImFjY291bnREZWxldGVkIjpmYWxzZSwiYWNjb3VudENyZWF0ZWQiOnRydWUsInRva2VucyI6MCwiZmlsZXMiOm51bGwsImlhdCI6MTc1OTUyMzgwMiwiZXhwIjoxNzYwMTI4NjAyfQ.l0zjuPfsCrwouTvZcvZqMuP2Bw7NE5FrocxSoQ_yaP8

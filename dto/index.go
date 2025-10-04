@@ -18,7 +18,7 @@ const (
 )
 
 var DTOMap = map[DtoMapKey]func() interface{}{
-	"PaymentPlanCreate":            dtoMapToRef[PaymentPlanCreate](),
+	"PaymentPlanCreate":            dtoMapToRef[ProductPlanCreate](),
 	"OTPCreateDto":                 dtoMapToRef[OTPCreateDto](),
 	"UserCreateDto":                dtoMapToRef[UserCreateDto](),
 	"UserCreateStep1Dto":           dtoMapToRef[UserCreateStep1Dto](),

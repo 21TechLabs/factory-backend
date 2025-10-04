@@ -1,12 +1,13 @@
 package dto
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/21TechLabs/factory-backend/utils"
 )
 
-type PaymentPlanCreate struct {
+type ProductPlanCreate struct {
 	PlanName         string            `json:"planName" validate:"required"`
 	PlanDescription  string            `json:"planDescription" validate:"required"`
 	PlanPrice        float64           `json:"planPrice" validate:"required,gt=0"`
@@ -17,4 +18,13 @@ type PaymentPlanCreate struct {
 	IsActive         bool              `json:"isActive" validate:"required"`
 	Features         utils.StringSlice `json:"features" validate:"required"`
 	PaymentGatewayID utils.JSONMap     `json:"paymentGatewayId" validate:"required"`
+}
+
+type ProductPlanFetchDto struct {
+	PlanType     utils.PlanType `json:"planType" validate:"omitempty,oneof='subscription' 'one_time'"`
+	IsActive     *bool          `json:"isActive" validate:"omitempty"`
+	PlanCurrency utils.Currency `json:"planCurrency" validate:"omitempty,oneof='USD' 'EUR' 'INR'"`
+	Start        json.Number    `json:"start" validate:"omitempty,gte=0"`
+	Limit        json.Number    `json:"limit" validate:"omitempty,gte=1,lte=100"`
+	SortBy       []utils.SortBy `json:"sortBy" validate:"omitempty,dive,required"`
 }

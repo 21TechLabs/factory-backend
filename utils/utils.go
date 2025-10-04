@@ -143,3 +143,32 @@ func ParseBytesToStruct(data []byte, out interface{}) error {
 	}
 	return nil
 }
+
+func ParseQueryParams(r *http.Request, out interface{}) error {
+	_queryParams := r.URL.Query()
+
+	queryParams := make(map[string]interface{})
+
+	for key, values := range _queryParams {
+		if len(values) > 0 {
+			if len(values) == 1 {
+				queryParams[key] = values[0]
+			} else {
+				queryParams[key] = values
+			}
+		}
+	}	
+
+	jsonData, err := json.Marshal(queryParams)
+	if err != nil {
+		return fmt.Errorf("failed to marshal query params: %w", err)
+	}
+
+	fmt.Println("Parsed query params:", string(jsonData))
+
+	err = json.Unmarshal(jsonData, out)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal query params: %w", err)
+	}
+	return nil
+}

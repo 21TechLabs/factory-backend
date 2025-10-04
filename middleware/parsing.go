@@ -7,7 +7,6 @@ import (
 
 	"github.com/21TechLabs/factory-backend/dto"
 	"github.com/21TechLabs/factory-backend/utils"
-	"github.com/go-playground/validator/v10"
 )
 
 func (m *Middleware) SchemaValidatorMiddleware(schemaKey dto.DtoMapKey) func(next http.Handler) http.Handler {
@@ -57,18 +56,11 @@ func (m *Middleware) SchemaValidatorMiddleware(schemaKey dto.DtoMapKey) func(nex
 				return
 			}
 
-			validate := validator.New()
-			err := validate.Struct(body)
-
-			if err != nil {
+			if err := utils.ValidateStruct(body); err != nil {
 				utils.ErrorResponse(m.Logger, w, http.StatusBadRequest, []byte(err.Error()))
 				return
 			}
 
-			// attach body to request context
-
-			// ctx := context.WithValue(r.Context(), utils.SchemaValidatorContextKey, body)
-			// r = r.WithContext(ctx)
 			ctx := r.Context()
 			ctx = context.WithValue(ctx, utils.SchemaValidatorContextKey, body)
 			r = r.WithContext(ctx)

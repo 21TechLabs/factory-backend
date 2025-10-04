@@ -36,7 +36,6 @@ func NewUserStore(db *gorm.DB, fs *FileStore) *UserStore {
 }
 
 type User struct {
-	gorm.Model
 	ID                     uint      `gorm:"primaryKey;autoIncrement;column:id" json:"id"`
 	Name                   string    `gorm:"column:name" json:"name"`
 	Role                   UserRole  `gorm:"column:role" json:"role"`
@@ -56,6 +55,8 @@ type User struct {
 	AccountCreated         bool      `gorm:"column:account_created" json:"accountCreated"`
 	Tokens                 int64     `gorm:"column:tokens" json:"tokens"`
 	Files                  []File    `gorm:"foreignKey:UserID;references:ID" json:"files"`
+	CreatedAt              time.Time `gorm:"column:created_at,autoCreateTime" json:"createdAt"`
+	UpdatedAt              time.Time `gorm:"column:updated_at,autoUpdateTime" json:"updatedAt"`
 }
 
 func (User) TableName() string {
