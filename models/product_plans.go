@@ -119,6 +119,15 @@ func (pps *ProductPlanStore) GetProductPlans(filter dto.ProductPlanFetchDto) ([]
 		}
 	}
 
+	if filter.Start != "" {
+		start, _ := filter.Start.Int64()
+		query = query.Offset(int(start))
+	}
+	if filter.Limit != "" {
+		limit, _ := filter.Limit.Int64()
+		query = query.Limit(int(limit))
+	}
+
 	if err := query.Find(&plans).Error; err != nil {
 		return nil, err
 	}
@@ -135,17 +144,4 @@ func (pps *ProductPlanStore) DeleteProductPlan(id uint) error {
 		return err
 	}
 	return nil
-}
-
-func (pps *ProductPlanStore) BuyProductPlan(user *User, planId uint) (*Transaction, error) {
-
-	// plan, err := pps.GetProductPlanByID(planId)
-	// if err != nil {
-	// 	return nil, err
-	// }
-
-	// // get plan type
-
-	return nil, nil
-
 }

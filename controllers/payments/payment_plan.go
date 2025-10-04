@@ -198,34 +198,41 @@ func (ppc *PaymentPlanController) ProcessOrderPaid(w http.ResponseWriter, r *htt
 		return
 	}
 
-	// body
-	var body models.RazorpayBaseEvent[models.RazorpayOrderPaidPayload]
+	var rawBody []byte = make([]byte, r.ContentLength)
 
-	// read r.Body to body
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		ppc.Logger.Printf("Error decoding request body: %v", err)
-		utils.ResponseWithJSON(ppc.Logger, w, http.StatusBadRequest, utils.Map{
-			"message": "Invalid request body",
-		})
-		return
+	for {
+		n, err := r.Body.Read(rawBody)
+		if err != nil {
+			if err.Error() == "EOF" {
+				break
+			}
+			ppc.Logger.Printf("Error reading request body: %v", err)
+			utils.ResponseWithJSON(ppc.Logger, w, http.StatusInternalServerError, utils.Map{
+				"message": "Failed to read request body",
+			})
+			return
+		}
+		if n == 0 {
+			break
+		}
 	}
 	defer r.Body.Close()
 
-	bodyBytes, err := json.Marshal(body)
-	if err != nil {
-		ppc.Logger.Printf("Error marshalling request body: %v", err)
-		utils.ResponseWithJSON(ppc.Logger, w, http.StatusInternalServerError, utils.Map{
-			"message": "Failed to process request",
+	isValid := utils.ValidateHeaderHMACSha256(rawBody, RazorpayHMECSecret, r.Header.Get("X-Razorpay-Signature"))
+	if !isValid {
+		utils.ResponseWithJSON(ppc.Logger, w, http.StatusBadRequest, utils.Map{
+			"message": "Invalid HMAC signature",
 		})
 		return
 	}
 
-	isValid := utils.ValidateHeaderHMACSha256(bodyBytes, RazorpayHMECSecret, r.Header.Get("X-Razorpay-Signature"))
+	// body
+	var body models.RazorpayBaseEvent[models.RazorpayOrderPaidPayload]
 
-	if !isValid {
-		ppc.Logger.Printf("Invalid HMAC signature for order ID: %s", body.Payload.Order.Entity.ID)
+	if err := json.Unmarshal(rawBody, &body); err != nil {
+		ppc.Logger.Printf("Error unmarshalling request body: %v", err)
 		utils.ResponseWithJSON(ppc.Logger, w, http.StatusBadRequest, utils.Map{
-			"message": "Invalid HMAC signature",
+			"message": "Invalid request body",
 		})
 		return
 	}

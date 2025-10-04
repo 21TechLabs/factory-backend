@@ -31,9 +31,7 @@ func (m *Middleware) SchemaValidatorMiddleware(schemaKey dto.DtoMapKey) func(nex
 
 			switch contentType {
 			case "application/json":
-				err := json.NewDecoder(r.Body).Decode(&body)
-
-				if err != nil {
+				if err := json.NewDecoder(r.Body).Decode(body); err != nil {
 					utils.ErrorResponse(m.Logger, w, http.StatusBadRequest, []byte("Failed to parse JSON"))
 					return
 				}
@@ -47,7 +45,7 @@ func (m *Middleware) SchemaValidatorMiddleware(schemaKey dto.DtoMapKey) func(nex
 					utils.ErrorResponse(m.Logger, w, http.StatusInternalServerError, []byte("Failed to marshal form data"))
 					return
 				}
-				if err := json.Unmarshal(jsonData, &body); err != nil {
+				if err := json.Unmarshal(jsonData, body); err != nil {
 					utils.ErrorResponse(m.Logger, w, http.StatusBadRequest, []byte("Failed to unmarshal form data"))
 					return
 				}

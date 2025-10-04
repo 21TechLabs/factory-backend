@@ -99,9 +99,12 @@ func (us *UserStore) UserCreate(user dto.UserCreateDto) (User, error) {
 	}
 
 	// send email verification msg
-	err = us.SendEmailVerifyEmail(&newUser)
-	if err != nil {
+	if err := us.SendEmailVerifyEmail(&newUser); err != nil {
 		return User{}, err
+	}
+
+	if err := us.Update(&newUser); err != nil {
+		return User{}, fmt.Errorf("failed to update user after creation: %w", err)
 	}
 
 	return newUser, nil
