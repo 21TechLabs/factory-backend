@@ -25,6 +25,8 @@ func init() {
 	RazorpayHMECSecret = utils.GetEnv("PAYMENTS_HMEC_SECRET", true)
 }
 
+// NewPaymentPlanController creates a PaymentPlanController configured with the provided logger and product plan store.
+// The logger is used for request-related logging; store provides persistence operations for payment plans.
 func NewPaymentPlanController(logger *log.Logger, store *models.ProductPlanStore) *PaymentPlanController {
 	fs := models.NewFileStore(store.DB)
 	us := models.NewUserStore(store.DB, fs)

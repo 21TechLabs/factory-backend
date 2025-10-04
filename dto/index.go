@@ -32,6 +32,8 @@ var DTOMap = map[DtoMapKey]func() interface{}{
 	"DiscordUserWeb":               dtoMapToRef[DiscordUserWeb](),
 }
 
+// dtoMapToRef returns a function that produces a pointer to a zero value of T.
+// The returned function allocates a zero-valued T and returns its address as an interface{}.
 func dtoMapToRef[T any]() func() interface{} {
 	return func() interface{} {
 		var x T

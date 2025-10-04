@@ -14,6 +14,7 @@ type TransactionStore struct {
 	UserStore *UserStore
 }
 
+// NewTransactionStore creates a TransactionStore using the provided gorm.DB as its database connection.
 func NewTransactionStore(db *gorm.DB) *TransactionStore {
 	// var fileStore = NewFileStore(db)
 	// var userStore = NewUserStore(db, fileStore)
