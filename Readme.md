@@ -7,7 +7,5 @@ We've not merged the front-end in this template is because we wanted it to be fr
 # Tech stack
 
 - Golang
-- MongoDB
-- GoFiber (It just provided famialarity to me with the express)
-
-# 
+- PostgreSQL
+- net/http

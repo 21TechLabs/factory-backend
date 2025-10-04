@@ -7,6 +7,11 @@ import (
 	"github.com/21TechLabs/factory-backend/middleware"
 )
 
+// SetupRoutes configures and returns an http.ServeMux populated with the application's HTTP routes.
+// 
+// It registers the root (GET "/") and health (GET "/health") endpoints to the application's health check
+// handler and sets up user, file, OAuth, and product-plan related routes by invoking the respective setup
+// functions.
 func SetupRoutes(app *app.Application) *http.ServeMux {
 	router := http.NewServeMux()
 
@@ -23,8 +28,7 @@ func SetupRoutes(app *app.Application) *http.ServeMux {
 	SetupUser(router, app)
 	SetupFile(router, app)
 	SetupOAuth(router, app)
-	SetupPayments(router, app)
-	SetupProduct(router, app)
+	SetupProductPlans(router, app)
 
 	return router
 }

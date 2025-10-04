@@ -8,12 +8,15 @@ import (
 	"github.com/21TechLabs/factory-backend/models"
 	"github.com/21TechLabs/factory-backend/utils"
 	"github.com/gofiber/fiber/v2"
-	"gorm.io/gorm"
 )
 
+// SetLoginTokenAndSendResponse sets an authentication cookie and sends a JSON response containing the login token and user details.
+// 
+// If the provided user's Email is empty, the function clears the "token" cookie and sends a 400 Bad Request with "User not found!".
+// If generating the JWT fails, the function sends a 400 Bad Request with "Failed to generate login token!".
+// On success, it sets a "token" cookie that expires in five days and responds with HTTP 200 containing a JSON object with keys:
+// "token" (the JWT), "user" (the user details as returned by the provided UserStore using the allowPasswordAndResetToken flag), and "success" (true).
 func SetLoginTokenAndSendResponse(log *log.Logger, r *http.Request, w http.ResponseWriter, user models.User, allowPasswordAndResetToken bool, us *models.UserStore) {
-
-	appCode := r.URL.Query().Get("appCode")
 
 	if len(user.Email) == 0 {
 		log.Printf("Failed to fetch user \"%v\" because token does not exists!", user.Email)
@@ -52,20 +55,6 @@ func SetLoginTokenAndSendResponse(log *log.Logger, r *http.Request, w http.Respo
 		"token":   token,
 		"user":    us.GetDetails(&user, allowPasswordAndResetToken),
 		"success": true,
-	}
-
-	if len(appCode) > 0 {
-		subscription, err := us.GetActiveAppSubscriptionByAppCode(&user, appCode)
-
-		if err != nil {
-			if err != gorm.ErrRecordNotFound {
-				log.Printf("Failed to fetch product with app code \"%v\" because an error occured: %v", appCode, err.Error())
-				utils.ErrorResponse(log, w, http.StatusBadRequest, []byte(err.Error()))
-				return
-			}
-		} else {
-			res["subscription"] = subscription
-		}
 	}
 
 	utils.ResponseWithJSON(log, w, http.StatusOK, res)

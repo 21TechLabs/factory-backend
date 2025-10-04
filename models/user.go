@@ -24,7 +24,6 @@ type UserRole int
 const (
 	UserRoleAdmin  UserRole = iota + 1 // 1
 	UserRoleClient UserRole = iota + 1 // 2
-	// add your userroles here
 )
 
 type UserStore struct {
@@ -37,30 +36,27 @@ func NewUserStore(db *gorm.DB, fs *FileStore) *UserStore {
 }
 
 type User struct {
-	gorm.Model
-	ID                     uint               `gorm:"primaryKey;autoIncrement;column:id" json:"id"`
-	Name                   string             `gorm:"column:name" json:"name"`
-	Role                   UserRole           `gorm:"column:role" json:"role"`
-	Email                  string             `gorm:"column:email;uniqueIndex" json:"email"`
-	ProfilePicURI          string             `gorm:"column:profile_picture_url" json:"profilePicURI"`
-	EmailVerified          bool               `gorm:"column:email_verified" json:"emailVerified"`
-	EmailVerificationToken string             `gorm:"column:email_verification_token" json:"-"`
-	Password               string             `gorm:"column:password" json:"-"`
-	PasswordResetToken     string             `gorm:"column:password_reset_token" json:"-"`
-	PasswordTries          int                `gorm:"column:password_tries" json:"passwordTries"`
-	OptedInForEmail        bool               `gorm:"column:opted_in_for_email" json:"optedInForEmail"`
-	AccountSuspended       bool               `gorm:"column:account_suspended" json:"accountSuspended"`
-	AccountBlocked         bool               `gorm:"column:account_blocked" json:"accountBlocked"`
-	MarkedForDeletion      bool               `gorm:"column:marked_for_deletion" json:"markedForDeletion"`
-	DeleteAccountAfter     time.Time          `gorm:"column:delete_account_after" json:"deleteAccountAfter"`
-	AccountDeleted         bool               `gorm:"column:account_deleted" json:"accountDeleted"`
-	AccountCreated         bool               `gorm:"column:account_created" json:"accountCreated"`
-	CoinBalance            int64              `gorm:"column:coin_balance" json:"coinBalance"`
-	RedirectURL            string             `gorm:"column:redirect_url" json:"redirectUrl"`
-	OnboardingDone         bool               `gorm:"column:onboarding_done" json:"onboardingDone"`
-	UserSubscriptions      []UserSubscription `json:"-" gorm:"foreignKey:UserID;references:ID"`
-	UserSubscription       *UserSubscription  `json:"userSubscription"`
-	Files                  []File             `gorm:"foreignKey:UserID;references:ID" json:"files"`
+	ID                     uint      `gorm:"primaryKey;autoIncrement;column:id" json:"id"`
+	Name                   string    `gorm:"column:name" json:"name"`
+	Role                   UserRole  `gorm:"column:role" json:"role"`
+	Email                  string    `gorm:"column:email;uniqueIndex" json:"email"`
+	ProfilePicURI          string    `gorm:"column:profile_picture_url" json:"profilePicURI"`
+	EmailVerified          bool      `gorm:"column:email_verified" json:"emailVerified"`
+	EmailVerificationToken string    `gorm:"column:email_verification_token" json:"-"`
+	Password               string    `gorm:"column:password" json:"-"`
+	PasswordResetToken     string    `gorm:"column:password_reset_token" json:"-"`
+	PasswordTries          int       `gorm:"column:password_tries" json:"passwordTries"`
+	OptedInForEmail        bool      `gorm:"column:opted_in_for_email" json:"optedInForEmail"`
+	AccountSuspended       bool      `gorm:"column:account_suspended" json:"accountSuspended"`
+	AccountBlocked         bool      `gorm:"column:account_blocked" json:"accountBlocked"`
+	MarkedForDeletion      bool      `gorm:"column:marked_for_deletion" json:"markedForDeletion"`
+	DeleteAccountAfter     time.Time `gorm:"column:delete_account_after" json:"deleteAccountAfter"`
+	AccountDeleted         bool      `gorm:"column:account_deleted" json:"accountDeleted"`
+	AccountCreated         bool      `gorm:"column:account_created" json:"accountCreated"`
+	Tokens                 int64     `gorm:"column:tokens" json:"tokens"`
+	Files                  []File    `gorm:"foreignKey:UserID;references:ID" json:"files"`
+	CreatedAt              time.Time `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
+	UpdatedAt              time.Time `gorm:"column:updated_at;autoUpdateTime" json:"updatedAt"`
 }
 
 func (User) TableName() string {
@@ -68,10 +64,6 @@ func (User) TableName() string {
 }
 
 func (us *UserStore) UserCreate(user dto.UserCreateDto) (User, error) {
-
-	role := UserRoleClient
-
-	var OnboardingDone = false
 
 	var userCount int64
 	result := us.DB.Model(&User{}).Where("email = ?", user.Email).Count(&userCount)
@@ -88,11 +80,10 @@ func (us *UserStore) UserCreate(user dto.UserCreateDto) (User, error) {
 
 	var newUser = User{
 		Name:            user.Name,
-		Role:            role,
+		Role:            UserRoleClient,
 		Email:           user.Email,
 		OptedInForEmail: true,
 		AccountCreated:  true,
-		OnboardingDone:  OnboardingDone,
 	}
 	var err error
 	newUser.Password, err = SaltPassword(user.Password, "")
@@ -101,16 +92,19 @@ func (us *UserStore) UserCreate(user dto.UserCreateDto) (User, error) {
 		return User{}, err
 	}
 
-	// send email verification msg
-	err = us.SendEmailVerifyEmail(&newUser)
-	if err != nil {
-		return User{}, err
-	}
-
 	result = us.DB.Create(&newUser)
 
 	if result.Error != nil {
 		return User{}, result.Error
+	}
+
+	// send email verification msg
+	if err := us.SendEmailVerifyEmail(&newUser); err != nil {
+		return User{}, err
+	}
+
+	if err := us.Update(&newUser); err != nil {
+		return User{}, fmt.Errorf("failed to update user after creation: %w", err)
 	}
 
 	return newUser, nil
@@ -511,24 +505,6 @@ func (us *UserStore) UserLogin(loginDto dto.UserLoginDto) (User, error) {
 	}
 
 	return user, nil
-}
-
-func (us *UserStore) GetActiveAppSubscriptionByAppCode(user *User, appCode string) (UserSubscription, error) {
-	var model = us.DB.Model(&UserSubscription{})
-
-	var subscription UserSubscription
-
-	result := model.Where("app_code = ? AND user_id = ? AND status IN ?", appCode, user.ID, []string{
-		string(SubscriptionStatusActive),
-		string(SubscriptionStatusCharged),
-		string(SubscriptionStatusCompleted),
-	}).First(&subscription)
-
-	if result.Error != nil {
-		return UserSubscription{}, result.Error
-	}
-
-	return subscription, nil
 }
 
 func (us *UserStore) UserGetAllBy(filter map[string]interface{}, start, limit int) ([]User, error) {

@@ -1,0 +1,43 @@
+###
+POST http://localhost:8000/products/create
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwibmFtZSI6IkpvaG4gRG9lIiwicm9sZSI6MiwiZW1haWwiOiJ0ZXN0MkBnbWFpbC5jb20iLCJwcm9maWxlUGljVVJJIjoiIiwiZW1haWxWZXJpZmllZCI6ZmFsc2UsInBhc3N3b3JkVHJpZXMiOjAsIm9wdGVkSW5Gb3JFbWFpbCI6dHJ1ZSwiYWNjb3VudFN1c3BlbmRlZCI6ZmFsc2UsImFjY291bnRCbG9ja2VkIjpmYWxzZSwibWFya2VkRm9yRGVsZXRpb24iOmZhbHNlLCJkZWxldGVBY2NvdW50QWZ0ZXIiOiIwMDAxLTAxLTAxVDA1OjUzOjI4KzA1OjUzIiwiYWNjb3VudERlbGV0ZWQiOmZhbHNlLCJhY2NvdW50Q3JlYXRlZCI6dHJ1ZSwidG9rZW5zIjowLCJmaWxlcyI6bnVsbCwiY3JlYXRlZEF0IjoiMjAyNS0xMC0wNFQwMTozODoyOS44MDQwNDMrMDU6MzAiLCJ1cGRhdGVkQXQiOiIyMDI1LTEwLTA1VDAyOjM4OjI1Ljc4ODQ3OSswNTozMCIsImlhdCI6MTc1OTYxMjE4NywiZXhwIjoxNzYwMjE2OTg3fQ._XA7h7zB8e9bAq-9OIzsZujkhGbVqcxqUp1G9CwWLLk
+content-type: application/json
+
+{
+    "planName": "Basic Plan",
+    "planDescription": "This is a basic plan",
+    "planPrice": 100,
+    "planCurrency": "INR",
+    "planDuration": 28,
+    "planType": "subscription",
+    "tokens": 1000,
+    "isActive": true,
+    "features": ["Feature1", "Feature2"],
+    "paymentGatewayId": {"razorpay": "plan_QX7whUHFlZ1NDR"}
+}
+
+###
+POST http://localhost:8000/products/create
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwibmFtZSI6IkpvaG4gRG9lIiwicm9sZSI6MiwiZW1haWwiOiJ0ZXN0MkBnbWFpbC5jb20iLCJwcm9maWxlUGljVVJJIjoiIiwiZW1haWxWZXJpZmllZCI6ZmFsc2UsInBhc3N3b3JkVHJpZXMiOjAsIm9wdGVkSW5Gb3JFbWFpbCI6dHJ1ZSwiYWNjb3VudFN1c3BlbmRlZCI6ZmFsc2UsImFjY291bnRCbG9ja2VkIjpmYWxzZSwibWFya2VkRm9yRGVsZXRpb24iOmZhbHNlLCJkZWxldGVBY2NvdW50QWZ0ZXIiOiIwMDAxLTAxLTAxVDA1OjUzOjI4KzA1OjUzIiwiYWNjb3VudERlbGV0ZWQiOmZhbHNlLCJhY2NvdW50Q3JlYXRlZCI6dHJ1ZSwidG9rZW5zIjowLCJmaWxlcyI6bnVsbCwiY3JlYXRlZEF0IjoiMjAyNS0xMC0wNFQwMTozODoyOS44MDQwNDMrMDU6MzAiLCJ1cGRhdGVkQXQiOiIyMDI1LTEwLTA1VDAyOjM4OjI1Ljc4ODQ3OSswNTozMCIsImlhdCI6MTc1OTYxMjE4NywiZXhwIjoxNzYwMjE2OTg3fQ._XA7h7zB8e9bAq-9OIzsZujkhGbVqcxqUp1G9CwWLLk
+content-type: application/json
+
+{
+    "planName": "Buy Tokens",
+    "planDescription": "This is a one-time purchase plan for tokens",
+    "planPrice": 10,
+    "planCurrency": "INR",
+    "planDuration": 1,
+    "planType": "one_time",
+    "tokens": 1,
+    "isActive": true,
+    "features": [],
+    "paymentGatewayId": {}
+}
+
+###
+GET http://localhost:8000/products/1
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwibmFtZSI6IkpvaG4gRG9lIiwicm9sZSI6MiwiZW1haWwiOiJ0ZXN0MkBnbWFpbC5jb20iLCJwcm9maWxlUGljVVJJIjoiIiwiZW1haWxWZXJpZmllZCI6ZmFsc2UsInBhc3N3b3JkVHJpZXMiOjAsIm9wdGVkSW5Gb3JFbWFpbCI6dHJ1ZSwiYWNjb3VudFN1c3BlbmRlZCI6ZmFsc2UsImFjY291bnRCbG9ja2VkIjpmYWxzZSwibWFya2VkRm9yRGVsZXRpb24iOmZhbHNlLCJkZWxldGVBY2NvdW50QWZ0ZXIiOiIwMDAxLTAxLTAxVDA1OjUzOjI4KzA1OjUzIiwiYWNjb3VudERlbGV0ZWQiOmZhbHNlLCJhY2NvdW50Q3JlYXRlZCI6dHJ1ZSwidG9rZW5zIjowLCJmaWxlcyI6bnVsbCwiY3JlYXRlZEF0IjoiMjAyNS0xMC0wNFQwMTozODoyOS44MDQwNDMrMDU6MzAiLCJ1cGRhdGVkQXQiOiIyMDI1LTEwLTA1VDAyOjM4OjI1Ljc4ODQ3OSswNTozMCIsImlhdCI6MTc1OTYxMjE4NywiZXhwIjoxNzYwMjE2OTg3fQ._XA7h7zB8e9bAq-9OIzsZujkhGbVqcxqUp1G9CwWLLk
+
+###
+GET http://localhost:8000/products/2/buy/razorpay?count=10
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwibmFtZSI6IkpvaG4gRG9lIiwicm9sZSI6MiwiZW1haWwiOiJ0ZXN0MkBnbWFpbC5jb20iLCJwcm9maWxlUGljVVJJIjoiIiwiZW1haWxWZXJpZmllZCI6ZmFsc2UsInBhc3N3b3JkVHJpZXMiOjAsIm9wdGVkSW5Gb3JFbWFpbCI6dHJ1ZSwiYWNjb3VudFN1c3BlbmRlZCI6ZmFsc2UsImFjY291bnRCbG9ja2VkIjpmYWxzZSwibWFya2VkRm9yRGVsZXRpb24iOmZhbHNlLCJkZWxldGVBY2NvdW50QWZ0ZXIiOiIwMDAxLTAxLTAxVDA1OjUzOjI4KzA1OjUzIiwiYWNjb3VudERlbGV0ZWQiOmZhbHNlLCJhY2NvdW50Q3JlYXRlZCI6dHJ1ZSwidG9rZW5zIjowLCJmaWxlcyI6bnVsbCwiY3JlYXRlZEF0IjoiMjAyNS0xMC0wNFQwMTozODoyOS44MDQwNDMrMDU6MzAiLCJ1cGRhdGVkQXQiOiIyMDI1LTEwLTA1VDAyOjM5OjQ2Ljk4NTgxNSswNTozMCIsImlhdCI6MTc1OTYxMjk4NSwiZXhwIjoxNzYwMjE3Nzg1fQ.zUhhxuE3mTOcnPsZeWYXPI4BnsCSRIZNYAgHCVU90Jo

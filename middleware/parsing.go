@@ -5,23 +5,33 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/21TechLabs/factory-backend/dto"
 	"github.com/21TechLabs/factory-backend/utils"
-	"github.com/go-playground/validator/v10"
 )
 
-func (m *Middleware) SchemaValidatorMiddleware(schemaFunc func() interface{}) func(next http.Handler) http.Handler {
+func (m *Middleware) SchemaValidatorMiddleware(schemaKey dto.DtoMapKey) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// get content type
 			contentType := r.Header.Get("Content-Type")
 
+			schemaFunc, ok := dto.DTOMap[schemaKey]
+
+			if !ok {
+				utils.ErrorResponse(m.Logger, w, http.StatusInternalServerError, []byte("Schema not found"))
+				return
+			}
+
 			body := schemaFunc()
+
+			if body == nil {
+				utils.ErrorResponse(m.Logger, w, http.StatusInternalServerError, []byte("Failed to create schema instance"))
+				return
+			}
 
 			switch contentType {
 			case "application/json":
-				err := json.NewDecoder(r.Body).Decode(&body)
-
-				if err != nil {
+				if err := json.NewDecoder(r.Body).Decode(body); err != nil {
 					utils.ErrorResponse(m.Logger, w, http.StatusBadRequest, []byte("Failed to parse JSON"))
 					return
 				}
@@ -35,7 +45,7 @@ func (m *Middleware) SchemaValidatorMiddleware(schemaFunc func() interface{}) fu
 					utils.ErrorResponse(m.Logger, w, http.StatusInternalServerError, []byte("Failed to marshal form data"))
 					return
 				}
-				if err := json.Unmarshal(jsonData, &body); err != nil {
+				if err := json.Unmarshal(jsonData, body); err != nil {
 					utils.ErrorResponse(m.Logger, w, http.StatusBadRequest, []byte("Failed to unmarshal form data"))
 					return
 				}
@@ -44,16 +54,13 @@ func (m *Middleware) SchemaValidatorMiddleware(schemaFunc func() interface{}) fu
 				return
 			}
 
-			validate := validator.New()
-			err := validate.Struct(body)
-
-			if err != nil {
+			if err := utils.ValidateStruct(body); err != nil {
 				utils.ErrorResponse(m.Logger, w, http.StatusBadRequest, []byte(err.Error()))
 				return
 			}
 
-			// attach body to request context
-			ctx := context.WithValue(r.Context(), utils.SchemaValidatorContextKey, body)
+			ctx := r.Context()
+			ctx = context.WithValue(ctx, utils.SchemaValidatorContextKey, body)
 			r = r.WithContext(ctx)
 
 			next.ServeHTTP(w, r)

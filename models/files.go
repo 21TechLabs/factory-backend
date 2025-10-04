@@ -22,15 +22,17 @@ func NewFileStore(db *gorm.DB) *FileStore {
 }
 
 type File struct {
-	gorm.Model
-	ID     uint   `json:"id" gorm:"primaryKey"`
-	UserID uint   `gorm:"not null;index"`
-	Name   string `json:"name" gorm:"column:name"`
-	Type   string `json:"type" gorm:"column:file_type"`
-	Etag   string `json:"-" gorm:"column:etag"`
-	Size   int64  `json:"size" gorm:"column:size"`
-	Key    string `json:"key" gorm:"column:key"`
-	Bucket string `json:"-" gorm:"column:bucket"`
+	ID        uint           `json:"id" gorm:"primaryKey;autoIncrement"`
+	UserID    uint           `gorm:"not null;index"`
+	Name      string         `json:"name" gorm:"column:name"`
+	Type      string         `json:"type" gorm:"column:file_type"`
+	Etag      string         `json:"-" gorm:"column:etag"`
+	Size      int64          `json:"size" gorm:"column:size"`
+	Key       string         `json:"key" gorm:"column:key"`
+	Bucket    string         `json:"-" gorm:"column:bucket"`
+	CreatedAt time.Time      `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
+	UpdatedAt time.Time      `gorm:"column:updated_at;autoUpdateTime" json:"updatedAt"`
+	DeletedAt gorm.DeletedAt `gorm:"column:deleted_at;index" json:"-"`
 }
 
 type FileUpload struct {

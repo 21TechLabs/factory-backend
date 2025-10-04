@@ -25,8 +25,8 @@ type MiddlewareStack func(next http.Handler) http.Handler
 
 func (m *Middleware) CreateStack(middlewares ...MiddlewareStack) MiddlewareStack {
 	return func(next http.Handler) http.Handler {
-		for _, middleware := range middlewares {
-			next = middleware(next)
+		for i := len(middlewares) - 1; i >= 0; i-- {
+			next = middlewares[i](next)
 		}
 		return next
 	}

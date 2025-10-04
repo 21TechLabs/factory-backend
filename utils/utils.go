@@ -50,13 +50,23 @@ func GetRegenTime(traitHealth int, health int) float64 {
 	return float64(traitHealth-health) / regenRate
 }
 
+// GetToken extracts an authentication token from the HTTP request.
+// It first attempts to read a cookie named "token"; if retrieving the cookie
+// returns an error other than http.ErrNoCookie that error is returned.
+// If the cookie is absent or empty, it falls back to the Authorization header
+// and, if present, removes a leading "Bearer " prefix. If no token is found,
+// an error is returned.
 func GetToken(r *http.Request) (string, error) {
 	cookie, err := r.Cookie("token")
 
-	if err != nil {
+	if err != nil && err != http.ErrNoCookie {
 		return "", fmt.Errorf("token not found in cookies: %w", err)
 	}
-	authToken := cookie.Value
+	var authToken string
+
+	if cookie != nil {
+		authToken = cookie.Value
+	}
 
 	if authToken == "" {
 		authToken = r.Header.Get("Authorization")
@@ -136,6 +146,35 @@ func ParseBytesToStruct(data []byte, out interface{}) error {
 	err := json.Unmarshal(data, out)
 	if err != nil {
 		return err
+	}
+	return nil
+}
+
+func ParseQueryParams(r *http.Request, out interface{}) error {
+	_queryParams := r.URL.Query()
+
+	queryParams := make(map[string]interface{})
+
+	for key, values := range _queryParams {
+		if len(values) > 0 {
+			if len(values) == 1 {
+				queryParams[key] = values[0]
+			} else {
+				queryParams[key] = values
+			}
+		}
+	}
+
+	jsonData, err := json.Marshal(queryParams)
+	if err != nil {
+		return fmt.Errorf("failed to marshal query params: %w", err)
+	}
+
+	fmt.Println("Parsed query params:", string(jsonData))
+
+	err = json.Unmarshal(jsonData, out)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal query params: %w", err)
 	}
 	return nil
 }
