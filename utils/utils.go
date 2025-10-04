@@ -50,6 +50,12 @@ func GetRegenTime(traitHealth int, health int) float64 {
 	return float64(traitHealth-health) / regenRate
 }
 
+// GetToken extracts an authentication token from the HTTP request.
+// It first attempts to read a cookie named "token"; if retrieving the cookie
+// returns an error other than http.ErrNoCookie that error is returned.
+// If the cookie is absent or empty, it falls back to the Authorization header
+// and, if present, removes a leading "Bearer " prefix. If no token is found,
+// an error is returned.
 func GetToken(r *http.Request) (string, error) {
 	cookie, err := r.Cookie("token")
 

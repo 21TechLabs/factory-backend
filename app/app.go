@@ -26,6 +26,11 @@ type Application struct {
 	PaymentPlanController *payments_controller.PaymentPlanController
 }
 
+// NewApplication creates and configures the Application instance.
+// It loads environment variables, establishes the database connection, runs schema migrations,
+// and initializes stores, middleware, and controllers wired into the application.
+// It returns the configured *Application on success, or nil and a non-nil error if environment
+// loading, database connection, or migration fail.
 func NewApplication() (*Application, error) {
 	if err := utils.LoadEnv(); err != nil {
 		return nil, err
