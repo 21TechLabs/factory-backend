@@ -17,7 +17,11 @@ func SetupProductPlans(router *http.ServeMux, app *app.Application) {
 	))
 
 	router.Handle("POST /products/create", app.Middleware.CreateStackWithHandler(
-		[]middleware.MiddlewareStack{app.Middleware.SchemaValidatorMiddleware(dto.DtoMapKeyPaymentPlanCreate), app.Middleware.UserAuthMiddleware},
+		[]middleware.MiddlewareStack{
+			app.Middleware.SchemaValidatorMiddleware(dto.DtoMapKeyPaymentPlanCreate),
+			app.Middleware.UserAuthMiddleware,
+			app.Middleware.HasRoleMiddleware([]models.UserRole{models.UserRoleAdmin}),
+		},
 		app.PaymentPlanController.CreateProductPlan,
 	))
 
