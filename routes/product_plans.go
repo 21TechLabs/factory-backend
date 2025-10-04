@@ -43,7 +43,7 @@ func SetupProductPlans(router *http.ServeMux, app *app.Application) {
 		app.PaymentPlanController.DeletePaymentPlan,
 	))
 
-	router.Handle("DELETE /products/{id}/buy/{paymentGateway}", app.Middleware.CreateStackWithHandler(
+	router.Handle("GET /products/{productId}/buy/{paymentGateway}", app.Middleware.CreateStackWithHandler(
 		[]middleware.MiddlewareStack{
 			app.Middleware.UserAuthMiddleware,
 			app.Middleware.HasRoleMiddleware([]models.UserRole{models.UserRoleAdmin, models.UserRoleClient}),

@@ -22,7 +22,7 @@ func NewFileStore(db *gorm.DB) *FileStore {
 }
 
 type File struct {
-	ID        uint      `json:"id" gorm:"primaryKey"`
+	ID        uint      `json:"id" gorm:"primaryKey;autoIncrement"`
 	UserID    uint      `gorm:"not null;index"`
 	Name      string    `json:"name" gorm:"column:name"`
 	Type      string    `json:"type" gorm:"column:file_type"`
@@ -30,8 +30,8 @@ type File struct {
 	Size      int64     `json:"size" gorm:"column:size"`
 	Key       string    `json:"key" gorm:"column:key"`
 	Bucket    string    `json:"-" gorm:"column:bucket"`
-	CreatedAt time.Time `gorm:"column:created_at,autoCreateTime" json:"createdAt"`
-	UpdatedAt time.Time `gorm:"column:updated_at,autoUpdateTime" json:"updatedAt"`
+	CreatedAt time.Time `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
+	UpdatedAt time.Time `gorm:"column:updated_at;autoUpdateTime" json:"updatedAt"`
 }
 
 type FileUpload struct {

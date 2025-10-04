@@ -32,9 +32,9 @@ type ProductPlan struct {
 	Features         utils.StringSlice `gorm:"type:json;column:features" json:"features"`
 	UpdatedBy        uint              `gorm:"column:updated_by" json:"updatedBy"`
 	UpdatedByUser    User              `gorm:"foreignKey:UpdatedBy;references:ID" json:"-"`
-	PaymentGatewayID utils.JSONMap     `gorm:"type:json column:payment_gateway_id" json:"paymentGatewayId"`
-	CreatedAt        time.Time         `gorm:"column:created_at,autoCreateTime" json:"createdAt"`
-	UpdatedAt        time.Time         `gorm:"column:updated_at,autoUpdateTime" json:"updatedAt"`
+	PaymentGatewayID utils.JSONMap     `gorm:"type:json;column:payment_gateway_id" json:"paymentGatewayId"`
+	CreatedAt        time.Time         `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
+	UpdatedAt        time.Time         `gorm:"column:updated_at;autoUpdateTime" json:"updatedAt"`
 }
 
 func (pps *ProductPlanStore) CreateProductPlan(plan *dto.ProductPlanCreate, user *User) error {

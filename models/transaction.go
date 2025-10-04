@@ -23,9 +23,9 @@ func NewTransactionStore(db *gorm.DB) *TransactionStore {
 
 type Transaction struct {
 	ID                          uint                    `gorm:"primaryKey;autoIncrement" json:"id"`
-	ReceiptId                   string                  `gorm:"column:receipt_id,unique" json:"receipt_id"`
+	ReceiptId                   string                  `gorm:"column:receipt_id;unique" json:"receipt_id"`
 	UserID                      uint                    `gorm:"column:user_id" json:"userId"`
-	User                        User                    `gorm:"foreignKey:UserID;references:ID" json:"user"`
+	User                        User                    `gorm:"foreignKey:UserID;references:ID" json:"-"`
 	Token                       int64                   `gorm:"column:token" json:"token"`
 	Amount                      float64                 `gorm:"column:amount" json:"amount"`
 	Currency                    utils.Currency          `gorm:"column:currency" json:"currency"`
@@ -35,8 +35,8 @@ type Transaction struct {
 	PaymentGatewayTransactionID string                  `gorm:"column:transaction_id" json:"transactionId"`
 	ProductPlanID               *uint                   `gorm:"column:product_plan_id" json:"-"`
 	PaymentPlan                 *ProductPlan            `gorm:"foreignKey:ProductPlanID;references:ID" json:"productPlan"`
-	CreatedAt                   time.Time               `gorm:"column:created_at,autoCreateTime" json:"createdAt"`
-	UpdatedAt                   time.Time               `gorm:"column:updated_at,autoUpdateTime" json:"updatedAt"`
+	CreatedAt                   time.Time               `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
+	UpdatedAt                   time.Time               `gorm:"column:updated_at;autoUpdateTime" json:"updatedAt"`
 }
 
 // transaction := &Transaction{

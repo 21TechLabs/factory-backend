@@ -51,10 +51,10 @@ func NewRazorpayPG(log *log.Logger, transactionStore *TransactionStore, userStor
 	}
 }
 
-func (rpg *RazorpayPG) InitiatePayment(productPlan *ProductPlan, user *User) (*Transaction, error) {
+func (rpg *RazorpayPG) InitiatePayment(productPlan *ProductPlan, user *User, count int) (*Transaction, error) {
 	switch productPlan.PlanType {
 	case utils.PlanTypeOneTime:
-		return rpg.initiatePaymentOneTime(productPlan, user)
+		return rpg.initiatePaymentOneTime(productPlan, user, count)
 	case utils.PlanTypeSubscription:
 		return rpg.initiatePaymentSubscription(productPlan, user)
 	default:
@@ -63,11 +63,11 @@ func (rpg *RazorpayPG) InitiatePayment(productPlan *ProductPlan, user *User) (*T
 
 }
 
-func (rpg *RazorpayPG) initiatePaymentOneTime(productPlan *ProductPlan, user *User) (*Transaction, error) {
+func (rpg *RazorpayPG) initiatePaymentOneTime(productPlan *ProductPlan, user *User, count int) (*Transaction, error) {
 	// create a transaction
 	txn := &dto.TransactionCreateDto{
-		Token:                       productPlan.Tokens,
-		Amount:                      productPlan.PlanPrice * 100, // Convert to smallest currency unit
+		Token:                       productPlan.Tokens * int64(count),
+		Amount:                      float64(count) * (productPlan.PlanPrice) * 100, // Convert to smallest currency unit
 		Currency:                    productPlan.PlanCurrency,
 		Status:                      utils.TransactionStatusPending,
 		ProductPlanID:               &(productPlan).ID,
@@ -82,8 +82,8 @@ func (rpg *RazorpayPG) initiatePaymentOneTime(productPlan *ProductPlan, user *Us
 	}
 
 	order := RazorpayCreateOrder{
-		Amount:         productPlan.PlanPrice, // Convert to smallest currency unit
-		Currency:       productPlan.PlanCurrency,
+		Amount:         txn.Amount, // Convert to smallest currency unit
+		Currency:       txn.Currency,
 		Receipt:        transaction.ReceiptId,
 		PartialPayment: false,
 		Notes:          map[string]string{"user_id": fmt.Sprintf("%d", user.ID)},
@@ -109,7 +109,7 @@ func (rpg *RazorpayPG) initiatePaymentOneTime(productPlan *ProductPlan, user *Us
 }
 
 func (rpg *RazorpayPG) initiatePaymentSubscription(productPlan *ProductPlan, user *User) (*Transaction, error) {
-	return nil, nil
+	return nil, fmt.Errorf("subscription payments are not implemented yet")
 }
 
 func (rpg *RazorpayPG) CaptureOrderPaid(event RazorpayBaseEvent[RazorpayOrderPaidPayload]) (*Transaction, error) {
@@ -136,6 +136,11 @@ func (rpg *RazorpayPG) CaptureOrderPaid(event RazorpayBaseEvent[RazorpayOrderPai
 
 	if txn == nil {
 		return nil, utils.ErrTransactionNotFound
+	}
+
+	if txn.Status == utils.TransactionStatusCompleted {
+		rpg.Logger.Printf("Order %s already captured; ignoring duplicate event", orderId)
+		return txn, nil
 	}
 
 	txn.Status = utils.TransactionStatusCompleted

@@ -13,7 +13,7 @@ const (
 )
 
 type PaymentGatewayInterface interface {
-	InitiatePayment(*ProductPlan, *User) (*Transaction, error)
+	InitiatePayment(*ProductPlan, *User, int) (*Transaction, error)
 	CaptureOrderPaid(RazorpayBaseEvent[RazorpayOrderPaidPayload]) (*Transaction, error)
 }
 

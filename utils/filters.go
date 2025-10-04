@@ -13,5 +13,5 @@ type DTOGtLt struct {
 
 type SortBy struct {
 	Field     string `json:"field" validate:"required"`
-	Direction string `json:"direction" validate:"required,oneof='asc' 'desc'"`
+	Direction string `json:"direction" validate:"required,oneof=asc desc"`
 }

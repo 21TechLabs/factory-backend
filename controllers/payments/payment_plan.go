@@ -277,6 +277,16 @@ func (ppc *PaymentPlanController) ProductBuy(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	_count := r.URL.Query().Get("count")
+	count := 1
+	if _count != "" {
+		count, err = strconv.Atoi(_count)
+		if err != nil {
+			utils.ErrorResponse(ppc.Logger, w, http.StatusBadRequest, []byte("Invalid count parameter"))
+			return
+		}
+	}
+
 	paymentGateway := r.PathValue("paymentGateway")
 	if paymentGateway == "" {
 		utils.ErrorResponse(ppc.Logger, w, http.StatusBadRequest, []byte("Payment gateway is required"))
@@ -296,7 +306,7 @@ func (ppc *PaymentPlanController) ProductBuy(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	txn, err := gateway.InitiatePayment(plan, user)
+	txn, err := gateway.InitiatePayment(plan, user, count)
 
 	if err != nil {
 		utils.ErrorResponse(ppc.Logger, w, http.StatusInternalServerError, []byte(err.Error()))
