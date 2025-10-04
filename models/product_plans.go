@@ -120,11 +120,20 @@ func (pps *ProductPlanStore) GetProductPlans(filter dto.ProductPlanFetchDto) ([]
 	}
 
 	if filter.Start != "" {
-		start, _ := filter.Start.Int64()
+		start, err := filter.Start.Int64()
+		if err != nil {
+			return nil, err
+		}
 		query = query.Offset(int(start))
 	}
 	if filter.Limit != "" {
-		limit, _ := filter.Limit.Int64()
+		limit, err := filter.Limit.Int64()
+		if err != nil {
+			return nil, err
+		}
+		if limit <= 0 {
+			return nil, utils.ErrInvalidLimit
+		}
 		query = query.Limit(int(limit))
 	}
 

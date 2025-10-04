@@ -73,7 +73,7 @@ func (ppc *PaymentPlanController) UpdatePaymentPlan(w http.ResponseWriter, r *ht
 		return
 	}
 
-	plan, err := utils.ReadContextValue[dto.ProductPlanCreate](r, utils.SchemaValidatorContextKey)
+	plan, err := utils.ReadContextValue[*dto.ProductPlanCreate](r, utils.SchemaValidatorContextKey)
 	if err != nil {
 		utils.ErrorResponse(ppc.Logger, w, http.StatusBadRequest, []byte("Invalid payment plan data"))
 		return
@@ -85,7 +85,7 @@ func (ppc *PaymentPlanController) UpdatePaymentPlan(w http.ResponseWriter, r *ht
 		return
 	}
 
-	err = ppc.ProductPlanStore.UpdateProductPlan(uint(planID), &plan, user)
+	err = ppc.ProductPlanStore.UpdateProductPlan(uint(planID), plan, user)
 	if err != nil {
 		utils.ErrorResponse(ppc.Logger, w, http.StatusInternalServerError, []byte(err.Error()))
 		return

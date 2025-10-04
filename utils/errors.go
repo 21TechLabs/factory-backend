@@ -11,6 +11,7 @@ var (
 	ErrPaymentGatewayNotFound = errors.New("payment gateway not found")
 	ErrTransactionNotFound    = errors.New("transaction not found")
 	ErrInvalidOrderID         = errors.New("invalid order ID")
+	ErrInvalidLimit           = errors.New("invalid limit")
 )
 
 func (e *PaymentGatewayError) Error() string {
