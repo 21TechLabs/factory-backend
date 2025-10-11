@@ -57,7 +57,12 @@ func SetupProductPlans(router *http.ServeMux, app *app.Application) {
 
 	router.Handle("POST /products/{paymentGateway}/order.paid", app.Middleware.CreateStackWithHandler(
 		[]middleware.MiddlewareStack{},
-		app.PaymentPlanController.ProcessOrderPaid,
+		app.PaymentPlanController.ProcessWebhook("order.paid"),
+	))
+
+	router.Handle("POST /products/{paymentGateway}/payment.failed", app.Middleware.CreateStackWithHandler(
+		[]middleware.MiddlewareStack{},
+		app.PaymentPlanController.ProcessWebhook("payment.failed"),
 	))
 
 }
