@@ -94,3 +94,70 @@ type RazorpayOrderEntity struct {
 	Notes      []any       `json:"notes"`
 	CreatedAt  int64       `json:"created_at"`
 }
+
+// RazorpayPaymentFailedPayload contains the payload for the "payment.failed" event.
+// It uses a specific wrapper for the failed payment entity.
+type RazorpayPaymentFailedPayload struct {
+	Payment RazorpayPaymentFailedWrapper `json:"payment"`
+}
+
+// RazorpayPaymentFailedWrapper wraps the main RazorpayPaymentFailedEntity.
+type RazorpayPaymentFailedWrapper struct {
+	Entity RazorpayPaymentFailedEntity `json:"entity"`
+}
+
+// RazorpayAcquirerData holds transaction data from the bank or acquirer.
+// Fields are pointers to handle cases where they are null.
+type RazorpayAcquirerData struct {
+	BankTransactionID *string `json:"bank_transaction_id,omitempty"`
+	AuthCode          *string `json:"auth_code,omitempty"`
+	RRN               *string `json:"rrn,omitempty"`
+	TransactionID     *string `json:"transaction_id,omitempty"`
+}
+
+// RazorpayUPIDetails holds information specific to a UPI transaction.
+// This is present only when the payment method is "upi".
+type RazorpayUPIDetails struct {
+	PayerAccountType string `json:"payer_account_type"`
+	VPA              string `json:"vpa"`
+	Flow             string `json:"flow"`
+}
+
+// RazorpayPaymentFailedEntity defines the structure of the payment object for a failed event.
+// It includes detailed error fields and method-specific nested objects.
+type RazorpayPaymentFailedEntity struct {
+	ID               string               `json:"id"`
+	Entity           string               `json:"entity"`
+	Amount           int                  `json:"amount"`
+	Currency         string               `json:"currency"`
+	Status           string               `json:"status"`
+	OrderID          string               `json:"order_id"`
+	InvoiceID        any                  `json:"invoice_id"`
+	International    bool                 `json:"international"`
+	Method           string               `json:"method"`
+	AmountRefunded   int                  `json:"amount_refunded"`
+	RefundStatus     any                  `json:"refund_status"`
+	Captured         bool                 `json:"captured"`
+	Description      any                  `json:"description"`
+	CardID           *string              `json:"card_id"`
+	Bank             *string              `json:"bank"`
+	Wallet           *string              `json:"wallet"`
+	VPA              *string              `json:"vpa"`
+	Email            string               `json:"email"`
+	Contact          string               `json:"contact"`
+	Notes            []any                `json:"notes"`
+	Fee              any                  `json:"fee"` // Fee is null for failed payments
+	Tax              any                  `json:"tax"` // Tax is null for failed payments
+	ErrorCode        string               `json:"error_code"`
+	ErrorDescription string               `json:"error_description"`
+	ErrorSource      *string              `json:"error_source"`
+	ErrorStep        *string              `json:"error_step"`
+	ErrorReason      *string              `json:"error_reason"`
+	AcquirerData     RazorpayAcquirerData `json:"acquirer_data"`
+	CreatedAt        int64                `json:"created_at"`
+	TokenID          *string              `json:"token_id,omitempty"` // Present in some card transactions
+
+	// Method-specific Objects
+	Card *RazorpayCardDetails `json:"card,omitempty"`
+	UPI  *RazorpayUPIDetails  `json:"upi,omitempty"`
+}
