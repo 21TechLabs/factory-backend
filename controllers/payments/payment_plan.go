@@ -3,6 +3,7 @@ package payments_controller
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"strconv"
@@ -13,10 +14,11 @@ import (
 )
 
 type PaymentPlanController struct {
-	Logger           *log.Logger
-	ProductPlanStore *models.ProductPlanStore
-	TransactionStore *models.TransactionStore
-	UserStore        *models.UserStore
+	Logger                *log.Logger
+	ProductPlanStore      *models.ProductPlanStore
+	TransactionStore      *models.TransactionStore
+	UserSubscriptionStore *models.UserSubscriptionStore
+	UserStore             *models.UserStore
 }
 
 var RazorpayHMECSecret = ""
@@ -27,10 +29,8 @@ func init() {
 
 // NewPaymentPlanController creates a PaymentPlanController configured with the provided logger and product plan store.
 // The logger is used for request-related logging; store provides persistence operations for payment plans.
-func NewPaymentPlanController(logger *log.Logger, store *models.ProductPlanStore) *PaymentPlanController {
-	fs := models.NewFileStore(store.DB)
-	us := models.NewUserStore(store.DB, fs)
-	return &PaymentPlanController{ProductPlanStore: store, Logger: logger, TransactionStore: models.NewTransactionStore(store.DB), UserStore: us}
+func NewPaymentPlanController(logger *log.Logger, store *models.ProductPlanStore, fs *models.FileStore, us *models.UserStore, uss *models.UserSubscriptionStore) *PaymentPlanController {
+	return &PaymentPlanController{ProductPlanStore: store, Logger: logger, TransactionStore: models.NewTransactionStore(store.DB), UserStore: us, UserSubscriptionStore: uss}
 }
 
 func (ppc *PaymentPlanController) CreateProductPlan(w http.ResponseWriter, r *http.Request) {
@@ -187,21 +187,19 @@ func (ppc *PaymentPlanController) DeletePaymentPlan(w http.ResponseWriter, r *ht
 func (ppc *PaymentPlanController) ProcessWebhook(webhook string) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		paymentGateway := r.PathValue("paymentGateway")
-		// always respond with 200 OK (but log the error if any)
 
-		gateway, err := models.GetPaymentGateway(paymentGateway, ppc.Logger, ppc.TransactionStore, ppc.UserStore)
+		gateway, err := models.GetPaymentGateway(paymentGateway, ppc.Logger, ppc.TransactionStore, ppc.UserStore, ppc.UserSubscriptionStore)
 
 		if err != nil {
 			ppc.Logger.Printf("Error getting payment gateway: %v", err)
-			utils.ResponseWithJSON(ppc.Logger, w, http.StatusOK, utils.Map{
-				"message": "Payment gateway not found",
-			})
+			utils.ErrorResponse(ppc.Logger, w, http.StatusBadRequest, []byte(err.Error()))
 			return
 		}
 
-		rawBody, err := utils.ReadBytesFromReader(r.Body)
+		rawBody, err := io.ReadAll(r.Body)
 		if err != nil {
 			utils.ErrorResponse(ppc.Logger, w, http.StatusBadRequest, []byte("Invalid request body"))
+			return
 		}
 		defer r.Body.Close()
 
@@ -244,7 +242,6 @@ func (ppc *PaymentPlanController) ProcessWebhook(webhook string) func(http.Respo
 			return
 		}
 
-		var txn *models.Transaction = nil
 		var txErr error = nil
 		switch webhook {
 		case "order.paid":
@@ -255,7 +252,7 @@ func (ppc *PaymentPlanController) ProcessWebhook(webhook string) func(http.Respo
 				})
 				return
 			}
-			txn, txErr = gateway.CaptureOrderPaid(_body)
+			_, txErr = gateway.CaptureOrderPaid(_body)
 		case "payment.failed":
 			_body, ok := body.(models.RazorpayBaseEvent[models.RazorpayPaymentFailedPayload])
 			if !ok {
@@ -264,7 +261,7 @@ func (ppc *PaymentPlanController) ProcessWebhook(webhook string) func(http.Respo
 				})
 				return
 			}
-			txn, txErr = gateway.ProcessFailedPayments(_body)
+			_, txErr = gateway.ProcessFailedPayments(_body)
 		default:
 			ppc.Logger.Printf("Unsupported webhook: %s", webhook)
 			utils.ResponseWithJSON(ppc.Logger, w, http.StatusBadRequest, utils.Map{
@@ -274,7 +271,7 @@ func (ppc *PaymentPlanController) ProcessWebhook(webhook string) func(http.Respo
 		}
 
 		if txErr != nil {
-			ppc.Logger.Printf("Error %s: %v", webhook, err)
+			ppc.Logger.Printf("Error %s: %v", webhook, txErr)
 			utils.ResponseWithJSON(ppc.Logger, w, http.StatusInternalServerError, utils.Map{
 				"message": fmt.Sprintf("Error processing transaction: %v", txErr),
 			})
@@ -283,8 +280,7 @@ func (ppc *PaymentPlanController) ProcessWebhook(webhook string) func(http.Respo
 
 		ppc.Logger.Printf("Successful processing transaction: %s", webhook)
 		utils.ResponseWithJSON(ppc.Logger, w, http.StatusOK, utils.Map{
-			"message":     "Successful processing transaction",
-			"transaction": txn,
+			"message": "Successful processing transaction",
 		})
 	}
 }
@@ -308,6 +304,12 @@ func (ppc *PaymentPlanController) ProductBuy(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	plan, err := ppc.ProductPlanStore.GetProductPlanByID(uint(productId))
+	if err != nil {
+		utils.ErrorResponse(ppc.Logger, w, http.StatusInternalServerError, []byte(err.Error()))
+		return
+	}
+
 	_count := r.URL.Query().Get("count")
 	count := 1
 	if _count != "" {
@@ -324,14 +326,7 @@ func (ppc *PaymentPlanController) ProductBuy(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	gateway, err := models.GetPaymentGateway(paymentGateway, ppc.Logger, ppc.TransactionStore, ppc.UserStore)
-	if err != nil {
-		utils.ErrorResponse(ppc.Logger, w, http.StatusInternalServerError, []byte(err.Error()))
-		return
-	}
-
-	// get product plan by ID
-	plan, err := ppc.ProductPlanStore.GetProductPlanByID(uint(productId))
+	gateway, err := models.GetPaymentGateway(paymentGateway, ppc.Logger, ppc.TransactionStore, ppc.UserStore, ppc.UserSubscriptionStore)
 	if err != nil {
 		utils.ErrorResponse(ppc.Logger, w, http.StatusInternalServerError, []byte(err.Error()))
 		return

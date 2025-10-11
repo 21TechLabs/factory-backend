@@ -74,6 +74,7 @@ func NewApplication() (*Application, error) {
 	fileStore := models.NewFileStore(db)
 	userStore := models.NewUserStore(db, fileStore)
 	paymentPlanStore := models.NewProductPlanStore(db, userStore)
+	userSubscriptionStore := models.NewUserSubscriptionStore(db, userStore)
 
 	// middleware initialization
 	middleware := middleware.NewMiddleware(logger, userStore)
@@ -83,7 +84,7 @@ func NewApplication() (*Application, error) {
 	fileController := controllers.NewFileController(logger, fileStore, userStore)
 	oauthController := oauth_controller.NewOAuthController(logger, userStore)
 	healthCheckController := controllers.NewHealthCheckController(logger)
-	paymentPlanController := payments_controller.NewPaymentPlanController(logger, paymentPlanStore)
+	paymentPlanController := payments_controller.NewPaymentPlanController(logger, paymentPlanStore, fileStore, userStore, userSubscriptionStore)
 
 	app := &Application{
 		Logger:                logger,
