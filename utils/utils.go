@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"os"
@@ -178,21 +177,4 @@ func ParseQueryParams(r *http.Request, out interface{}) error {
 		return fmt.Errorf("failed to unmarshal query params: %w", err)
 	}
 	return nil
-}
-
-func ReadBytesFromReader(body io.Reader) ([]byte, error) {
-	var rawBody []byte = make([]byte, 0)
-	for {
-		n, err := body.Read(rawBody)
-		if err != nil {
-			if err.Error() == "EOF" {
-				break
-			}
-			return nil, err
-		}
-		if n == 0 {
-			break
-		}
-	}
-	return rawBody, nil
 }

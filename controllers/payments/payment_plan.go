@@ -3,6 +3,7 @@ package payments_controller
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"strconv"
@@ -199,7 +200,7 @@ func (ppc *PaymentPlanController) ProcessWebhook(webhook string) func(http.Respo
 			return
 		}
 
-		rawBody, err := utils.ReadBytesFromReader(r.Body)
+		rawBody, err := io.ReadAll(r.Body)
 		if err != nil {
 			utils.ErrorResponse(ppc.Logger, w, http.StatusBadRequest, []byte("Invalid request body"))
 		}
