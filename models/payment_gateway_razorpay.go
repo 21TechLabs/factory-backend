@@ -167,3 +167,45 @@ func (rpg *RazorpayPG) CaptureOrderPaid(event RazorpayBaseEvent[RazorpayOrderPai
 	rpg.Logger.Printf("Order %s captured successfully for transaction ID %d", orderId, txn.ID)
 	return txn, nil
 }
+
+func (rpg *RazorpayPG) ProcessFailedPayments(event RazorpayBaseEvent[RazorpayPaymentFailedPayload]) (*Transaction, error) {
+	orderId := event.Payload.Payment.Entity.OrderID
+
+	if orderId == "" {
+		return nil, utils.ErrInvalidOrderID
+	}
+
+	order, err := rpg.Client.Order.Fetch(orderId, nil, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch order: %w", err)
+	}
+
+	if order["status"] != OrderStatusPaid {
+		return nil, fmt.Errorf("order is not paid, status: %s", order["status"])
+	}
+
+	txn, err := rpg.TransactionStore.GetByPaymentGatewayTransactionID(event.Payload.Payment.Entity.ID)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to get transaction by order ID: %w", err)
+	}
+
+	if txn == nil {
+		return nil, utils.ErrTransactionNotFound
+	}
+
+	if txn.Status == utils.TransactionStatusCompleted {
+		rpg.Logger.Printf("Order %s already processed; ignoring event", orderId)
+		return txn, nil
+	}
+
+	txn.Status = utils.TransactionStatusFailed
+	txn.PaymentGatewayRedirectURL = ""
+
+	if err := rpg.TransactionStore.Update(txn); err != nil {
+		return nil, fmt.Errorf("failed to update transaction: %w", err)
+	}
+
+	rpg.Logger.Printf("%s failed for transaction ID %d", orderId, txn.ID)
+	return txn, nil
+}

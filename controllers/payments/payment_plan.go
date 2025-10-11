@@ -199,22 +199,9 @@ func (ppc *PaymentPlanController) ProcessOrderPaid(w http.ResponseWriter, r *htt
 	}
 
 	var rawBody []byte = make([]byte, r.ContentLength)
-
-	for {
-		n, err := r.Body.Read(rawBody)
-		if err != nil {
-			if err.Error() == "EOF" {
-				break
-			}
-			ppc.Logger.Printf("Error reading request body: %v", err)
-			utils.ResponseWithJSON(ppc.Logger, w, http.StatusInternalServerError, utils.Map{
-				"message": "Failed to read request body",
-			})
-			return
-		}
-		if n == 0 {
-			break
-		}
+	rawBody, err = utils.ReadBytesFromReader(r.Body)
+	if err != nil {
+		utils.ErrorResponse(ppc.Logger, w, http.StatusBadRequest, []byte("Invalid request body"))
 	}
 	defer r.Body.Close()
 
@@ -326,4 +313,69 @@ func (ppc *PaymentPlanController) ProductBuy(w http.ResponseWriter, r *http.Requ
 		"message": "Payment initiated successfully",
 		"txn":     txn,
 	})
+}
+
+func (ppc *PaymentPlanController) PaymentFailed(w http.ResponseWriter, r *http.Request) {
+	paymentGateway := r.PathValue("paymentGateway")
+
+	if paymentGateway == "" {
+		utils.ErrorResponse(ppc.Logger, w, http.StatusOK, []byte("Payment gateway is required"))
+		return
+	}
+
+	gateway, err := models.GetPaymentGateway(paymentGateway, ppc.Logger, ppc.TransactionStore, ppc.UserStore)
+
+	if err != nil {
+		utils.ErrorResponse(ppc.Logger, w, http.StatusOK, []byte(err.Error()))
+	}
+
+	var rawBody []byte = make([]byte, r.ContentLength)
+
+	rawBody, err = utils.ReadBytesFromReader(r.Body)
+	if err != nil {
+		utils.ErrorResponse(ppc.Logger, w, http.StatusBadRequest, []byte("Invalid request body"))
+	}
+	defer r.Body.Close()
+
+	isValid := utils.ValidateHeaderHMACSha256(rawBody, RazorpayHMECSecret, r.Header.Get("X-Razorpay-Signature"))
+	if !isValid {
+		utils.ResponseWithJSON(ppc.Logger, w, http.StatusBadRequest, utils.Map{
+			"message": "Invalid HMAC signature",
+		})
+		return
+	}
+
+	// body
+	var body models.RazorpayBaseEvent[models.RazorpayPaymentFailedPayload]
+
+	if err := json.Unmarshal(rawBody, &body); err != nil {
+		ppc.Logger.Printf("Error unmarshalling request body: %v", err)
+		utils.ResponseWithJSON(ppc.Logger, w, http.StatusBadRequest, utils.Map{
+			"message": "Invalid request body",
+		})
+		return
+	}
+
+	// validate body
+	if err := utils.ValidateStruct(body); err != nil {
+		ppc.Logger.Printf("Validation error: %v", err)
+		utils.ResponseWithJSON(ppc.Logger, w, http.StatusBadRequest, utils.Map{
+			"message": err.Error(),
+		})
+		return
+	}
+
+	txn, err := gateway.ProcessFailedPayments(body)
+
+	if err != nil {
+		utils.ErrorResponse(ppc.Logger, w, http.StatusInternalServerError, []byte(err.Error()))
+	}
+
+	ppc.Logger.Printf("Processing order paid event for order ID: %s", body.Payload.Payment.Entity.OrderID)
+
+	utils.ResponseWithJSON(ppc.Logger, w, http.StatusOK, utils.Map{
+		"success": "Ok!",
+		"txn":     txn,
+	})
+
 }

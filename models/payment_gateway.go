@@ -15,6 +15,7 @@ const (
 type PaymentGatewayInterface interface {
 	InitiatePayment(*ProductPlan, *User, int) (*Transaction, error)
 	CaptureOrderPaid(RazorpayBaseEvent[RazorpayOrderPaidPayload]) (*Transaction, error)
+	ProcessFailedPayments(RazorpayBaseEvent[RazorpayPaymentFailedPayload]) (*Transaction, error)
 }
 
 func GetPaymentGateway(gateway string, logger *log.Logger, transactionStore *TransactionStore, userStore *UserStore) (PaymentGatewayInterface, error) {
