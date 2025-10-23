@@ -1,8 +1,10 @@
 package models
 
 import (
+	"errors"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/21TechLabs/factory-backend/dto"
 	"github.com/21TechLabs/factory-backend/utils"
@@ -18,10 +20,11 @@ func init() {
 }
 
 type RazorpayPG struct {
-	Logger           *log.Logger
-	TransactionStore *TransactionStore
-	UserStore        *UserStore
-	Client           *razorpay.Client
+	Logger                *log.Logger
+	TransactionStore      *TransactionStore
+	UserSubscriptionStore *UserSubscriptionStore
+	UserStore             *UserStore
+	Client                *razorpay.Client
 }
 
 type RazorpayCreateOrder struct {
@@ -42,12 +45,56 @@ func (rco *RazorpayCreateOrder) ToMap() map[string]interface{} {
 	}
 }
 
-func NewRazorpayPG(log *log.Logger, transactionStore *TransactionStore, userStore *UserStore) *RazorpayPG {
+/*
+
+data := map[string]interface{}{
+  "plan_id":"plan_JcwJfpjN6VHSGv",
+  "total_count":3,
+  "quantity": 1,
+  "customer_notify":1,
+  "addons":[]interface{}{
+    map[string]interface{}{
+      "item":map[string]interface{}{
+        "name":"Delivery charges",
+        "amount":3000,
+        "currency":"INR",
+      },
+    },
+  },
+  "notes":map[string]interface{}{
+    "notes_key_1":"Tea, Earl Grey, Hot",
+    "notes_key_2":"Tea, Earl Grey… decaf.",
+  },
+}
+*/
+
+type RazorpayCreateSubscription struct {
+	PlanID         string                `json:"plan_id"`
+	TotalCount     int                   `json:"total_count"`
+	Quantity       int                   `json:"quantity"`
+	CustomerNotify int                   `json:"customer_notify"`
+	Addons         utils.JSONMap[string] `json:"addons"`
+	Notes          utils.JSONMap[string] `json:"notes"`
+}
+
+func (r RazorpayCreateSubscription) ToMap() map[string]interface{} {
+	return map[string]interface{}{
+		"plan_id":         r.PlanID,
+		"total_count":     r.TotalCount,
+		"quantity":        r.Quantity,
+		"customer_notify": r.CustomerNotify,
+		"addons":          r.Addons,
+		"notes":           r.Notes,
+	}
+}
+
+func NewRazorpayPG(log *log.Logger, transactionStore *TransactionStore, userStore *UserStore, uss *UserSubscriptionStore) *RazorpayPG {
 	return &RazorpayPG{
-		Logger:           log,
-		TransactionStore: transactionStore,
-		Client:           RazorpayClient,
-		UserStore:        userStore,
+		Logger:                log,
+		TransactionStore:      transactionStore,
+		Client:                RazorpayClient,
+		UserStore:             userStore,
+		UserSubscriptionStore: uss,
 	}
 }
 
@@ -109,7 +156,68 @@ func (rpg *RazorpayPG) initiatePaymentOneTime(productPlan *ProductPlan, user *Us
 }
 
 func (rpg *RazorpayPG) initiatePaymentSubscription(productPlan *ProductPlan, user *User) (*Transaction, error) {
-	return nil, fmt.Errorf("subscription payments are not implemented yet")
+	subscriptionPlanID := productPlan.PaymentGatewayID[PaymentGatewayRazorpay]
+
+	if subscriptionPlanID == "" {
+		return nil, fmt.Errorf("missing Razorpay plan_id for product plan %d", productPlan.ID)
+	}
+
+	var subscriptionBody = RazorpayCreateSubscription{
+		PlanID:         subscriptionPlanID,
+		TotalCount:     1,
+		Quantity:       1,
+		CustomerNotify: 1,
+		Addons:         nil,
+		Notes:          map[string]string{"user_id": fmt.Sprintf("%d", user.ID)},
+	}
+	_sub, err := rpg.Client.Subscription.Create(subscriptionBody.ToMap(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	sub, err := utils.MapToStruct[RazorpaySubscriptionCreateEvent](_sub)
+	if err != nil {
+		return nil, err
+	}
+
+	txn := &dto.TransactionCreateDto{
+		Token:                       productPlan.Tokens,
+		Amount:                      (productPlan.PlanPrice) * 100, // Convert to the smallest currency unit
+		Currency:                    productPlan.PlanCurrency,
+		Status:                      utils.TransactionStatusPending,
+		ProductPlanID:               &productPlan.ID,
+		PaymentGatewayName:          PaymentGatewayRazorpay,
+		PaymentGatewayRedirectURL:   sub.ShortURL,
+		PaymentGatewayTransactionID: sub.ID,
+	}
+
+	startAt := time.Unix(sub.StartAt, 0)
+	endAt := time.Unix(sub.EndAt, 0)
+
+	userSub := UserSubscription{
+		UserID:             user.ID,
+		StartDate:          startAt,
+		EndDate:            endAt,
+		IsActive:           false,
+		SubscriptionStatus: utils.SubscriptionStatusPending,
+		PaymentGatewayName: PaymentGatewayRazorpay,
+		SubscriptionID:     sub.ID,
+		ProductPlanID:      productPlan.ID,
+		ChargedCount:       sub.PaidCount,
+		TotalChargedCount:  sub.TotalCount,
+		Suspended:          false,
+	}
+
+	if _, err = rpg.UserSubscriptionStore.Create(userSub); err != nil {
+		return nil, err
+	}
+
+	transaction, err := rpg.TransactionStore.CreateTransaction(txn, user)
+	if err != nil {
+		return nil, err
+	}
+
+	return &transaction, nil
 }
 
 func (rpg *RazorpayPG) CaptureOrderPaid(event RazorpayBaseEvent[RazorpayOrderPaidPayload]) (*Transaction, error) {
@@ -166,4 +274,146 @@ func (rpg *RazorpayPG) CaptureOrderPaid(event RazorpayBaseEvent[RazorpayOrderPai
 
 	rpg.Logger.Printf("Order %s captured successfully for transaction ID %d", orderId, txn.ID)
 	return txn, nil
+}
+
+func (rpg *RazorpayPG) ProcessFailedPayments(event RazorpayBaseEvent[RazorpayPaymentFailedPayload]) (*Transaction, error) {
+	orderId := event.Payload.Payment.Entity.OrderID
+
+	if orderId == "" {
+		return nil, utils.ErrInvalidOrderID
+	}
+
+	order, err := rpg.Client.Order.Fetch(orderId, nil, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch order: %w", err)
+	}
+
+	if order["status"] != OrderStatusPaid {
+		return nil, fmt.Errorf("order is not paid, status: %s", order["status"])
+	}
+
+	txn, err := rpg.TransactionStore.GetByPaymentGatewayTransactionID(event.Payload.Payment.Entity.ID)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to get transaction by order ID: %w", err)
+	}
+
+	if txn == nil {
+		return nil, utils.ErrTransactionNotFound
+	}
+
+	if txn.Status == utils.TransactionStatusCompleted {
+		rpg.Logger.Printf("Order %s already processed; ignoring event", orderId)
+		return txn, nil
+	}
+
+	txn.Status = utils.TransactionStatusFailed
+	txn.PaymentGatewayRedirectURL = ""
+
+	if err := rpg.TransactionStore.Update(txn); err != nil {
+		return nil, fmt.Errorf("failed to update transaction: %w", err)
+	}
+
+	rpg.Logger.Printf("%s failed for transaction ID %d", orderId, txn.ID)
+	return txn, nil
+}
+
+func (rpg *RazorpayPG) ProcessSubscriptions(subscription RazorpayBaseEvent[RazorpaySubscriptionEventsPayload]) (*Transaction, error) {
+	subId := subscription.Payload.Subscription.Entity.ID
+
+	if subId == "" {
+		return nil, utils.ErrInvalidOrderID
+	}
+
+	//fetch subscription
+	sub, err := rpg.Client.Subscription.Fetch(subId, nil, nil)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch subscription: %w", err)
+	}
+
+	if sub == nil {
+		return nil, utils.ErrSubscriptionNotFound
+	}
+
+	subEvent := utils.SubscriptionStatus(subscription.Event)
+
+	userSub, err := rpg.UserSubscriptionStore.FindBySubscriptionID(subId)
+	if err != nil {
+		return nil, err
+	}
+
+	subEntity := subscription.Payload.Subscription.Entity
+
+	userSub.SubscriptionStatus = subEvent
+	userSub.ChargedCount = subEntity.PaidCount
+	userSub.TotalChargedCount = subEntity.TotalCount
+
+	userSub.StartDate = time.Unix(subEntity.StartAt, 0)
+	userSub.EndDate = time.Unix(subEntity.EndAt, 0)
+
+	var nTxn *Transaction
+
+	switch subEvent {
+	case utils.SubscriptionStatusActive:
+		userSub.IsActive = true
+	case utils.SubscriptionStatusPaused:
+		userSub.IsActive = false
+	case utils.SubscriptionStatusResumed:
+		userSub.IsActive = true
+	case utils.SubscriptionStatusCancelled:
+		userSub.IsActive = false
+	case utils.SubscriptionStatusCompleted:
+		userSub.IsActive = false
+	case utils.SubscriptionStatusPending:
+		userSub.IsActive = false
+	case utils.SubscriptionStatusHalted:
+		userSub.IsActive = false
+	case utils.SubscriptionStatusCharged:
+		userSub.IsActive = true
+
+		if subscription.Payload.Payment == nil {
+			rpg.Logger.Printf("subscription %s charged event without payment payload; skipping txn creation", subId)
+			return nil, errors.New("subscription charged event without payment payload")
+		}
+		// Ensure relations are loaded
+		if userSub.ProductPlanID != 0 && (userSub.ProductPlan.ID == 0) {
+			return nil, errors.New("failed to load product plan")
+		}
+
+		productPlan := userSub.ProductPlan
+		paymentEntity := subscription.Payload.Payment.Entity
+		txn := &dto.TransactionCreateDto{
+			Token:                       productPlan.Tokens,
+			Amount:                      float64(paymentEntity.Amount),
+			Currency:                    productPlan.PlanCurrency,
+			Status:                      utils.TransactionStatusCompleted,
+			ProductPlanID:               &(productPlan).ID,
+			PaymentGatewayName:          PaymentGatewayRazorpay,
+			PaymentGatewayRedirectURL:   "",
+			PaymentGatewayTransactionID: paymentEntity.ID,
+		}
+		_nTxn, err := rpg.TransactionStore.CreateTransaction(txn, &userSub.User)
+
+		if err != nil {
+			return nil, err
+		}
+		nTxn = &_nTxn
+	default:
+		return nil, utils.ErrInvalidSubscription
+	}
+
+	if err = rpg.UserSubscriptionStore.Save(userSub); err != nil {
+		return nil, err
+	}
+
+	if nTxn == nil {
+		//	fetch txn using subscription id
+		nTxn, err = rpg.TransactionStore.GetByPaymentGatewayTransactionID(subId)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return nTxn, nil
 }

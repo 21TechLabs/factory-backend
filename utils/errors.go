@@ -8,6 +8,8 @@ type PaymentGatewayError struct {
 
 var (
 	ErrInvalidPlanType        = errors.New("invalid plan type")
+	ErrSubscriptionNotFound   = errors.New("subscription not found")
+	ErrInvalidSubscription    = errors.New("invalid subscription")
 	ErrPaymentGatewayNotFound = errors.New("payment gateway not found")
 	ErrTransactionNotFound    = errors.New("transaction not found")
 	ErrInvalidOrderID         = errors.New("invalid order ID")
