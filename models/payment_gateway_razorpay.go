@@ -198,8 +198,8 @@ func (rpg *RazorpayPG) initiatePaymentSubscription(productPlan *ProductPlan, use
 		PaymentGatewayName: PaymentGatewayRazorpay,
 		SubscriptionID:     sub.ID,
 		ProductPlanID:      productPlan.ID,
-		ChargedCount:       uint(sub.PaidCount),
-		TotalChargedCount:  uint(sub.TotalCount),
+		ChargedCount:       sub.PaidCount,
+		TotalChargedCount:  sub.TotalCount,
 		Suspended:          false,
 	}
 
@@ -333,40 +333,62 @@ func (rpg *RazorpayPG) ProcessSubscriptions(subscription RazorpayBaseEvent[Razor
 
 	subEvent := utils.SubscriptionStatus(subscription.Event)
 
-	//userSub, err := rpg.
+	userSub, err := rpg.UserSubscriptionStore.FindBySubscriptionID(subId)
+	if err != nil {
+		return nil, err
+	}
+
+	subEntity := subscription.Payload.Subscription.Entity
+
+	userSub.SubscriptionStatus = subEvent
+	userSub.ChargedCount = subEntity.PaidCount
+	userSub.TotalChargedCount = subEntity.TotalCount
+
+	userSub.StartDate = time.Unix(subEntity.StartAt, 0)
+	userSub.EndDate = time.Unix(subEntity.EndAt, 0)
 
 	switch subEvent {
 	case utils.SubscriptionStatusActive:
-		fmt.Printf("Subscription %s is active", subId)
-		fmt.Printf("Subscription %s is active", subId)
+		userSub.IsActive = true
 	case utils.SubscriptionStatusPaused:
-		fmt.Printf("Subscription %s is paused", subId)
-		fmt.Printf("Subscription %s is paused", subId)
+		userSub.IsActive = false
 	case utils.SubscriptionStatusResumed:
-		fmt.Printf("Subscription %s is resumed", subId)
-		fmt.Printf("Subscription %s is resumed", subId)
-	case utils.SubscriptionStatusUpdated:
-		fmt.Printf("Subscription %s is updated", subId)
-		fmt.Printf("Subscription %s is updated", subId)
+		userSub.IsActive = true
 	case utils.SubscriptionStatusCancelled:
-		fmt.Printf("Subscription %s is cancelled", subId)
-		fmt.Printf("Subscription %s is cancelled", subId)
+		userSub.IsActive = false
 	case utils.SubscriptionStatusCompleted:
-		fmt.Printf("Subscription %s is completed", subId)
-		fmt.Printf("Subscription %s is completed", subId)
+		userSub.IsActive = false
 	case utils.SubscriptionStatusPending:
-		fmt.Printf("Subscription %s is pending", subId)
-		fmt.Printf("Subscription %s is pending", subId)
+		userSub.IsActive = false
 	case utils.SubscriptionStatusHalted:
-		fmt.Printf("Subscription %s is halted", subId)
-		fmt.Printf("Subscription %s is halted", subId)
+		userSub.IsActive = false
+	case utils.SubscriptionStatusCharged:
+		userSub.IsActive = true
+		// everytime a sub is charged, we need to create a new txn
+		productPlan := userSub.ProductPlan
+		paymentEntity := subscription.Payload.Payment.Entity
+		txn := &dto.TransactionCreateDto{
+			Token:                       productPlan.Tokens,
+			Amount:                      float64(paymentEntity.Amount),
+			Currency:                    productPlan.PlanCurrency,
+			Status:                      utils.TransactionStatusCompleted,
+			ProductPlanID:               &(productPlan).ID,
+			PaymentGatewayName:          PaymentGatewayRazorpay,
+			PaymentGatewayRedirectURL:   "",
+			PaymentGatewayTransactionID: paymentEntity.ID,
+		}
+		_, err = rpg.TransactionStore.CreateTransaction(txn, &userSub.User)
+
+		if err != nil {
+			return nil, err
+		}
 	default:
 		return nil, utils.ErrInvalidSubscription
 	}
 
-	return nil, utils.ErrInvalidSubscription
-}
+	if err = rpg.UserSubscriptionStore.Save(userSub); err != nil {
+		return nil, err
+	}
 
-func (rpg *RazorpayPG) processSubscriptionActive(subscription RazorpayBaseEvent[RazorpaySubscriptionEventsPayload]) (*Transaction, error) {
 	return nil, nil
 }

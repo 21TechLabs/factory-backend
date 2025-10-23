@@ -22,8 +22,8 @@ const (
 	SubscriptionStatusCancelled SubscriptionStatus = "subscription.cancelled"
 	SubscriptionStatusCompleted SubscriptionStatus = "subscription.completed"
 	SubscriptionStatusPaused    SubscriptionStatus = "subscription.paused"
-	SubscriptionStatusResumed   SubscriptionStatus = "subscription.resumed" // Based on event name
-	SubscriptionStatusUpdated   SubscriptionStatus = "subscription.updated" // Based on event name
+	SubscriptionStatusResumed   SubscriptionStatus = "subscription.resumed"
+	SubscriptionStatusCharged   SubscriptionStatus = "subscription.charged"
 )
 
 type TransactionStatus string

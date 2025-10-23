@@ -31,8 +31,9 @@ type UserSubscription struct {
 	PaymentGatewayName string                   `gorm:"column:payment_gateway_name" json:"paymentGatewayName"`
 	SubscriptionID     string                   `gorm:"column:subscription_id;unique" json:"subscriptionId"`
 	ProductPlanID      uint                     `gorm:"column:product_plan_id" json:"-"`
-	ChargedCount       uint                     `gorm:"column:charged_count" json:"chargedCount"`
-	TotalChargedCount  uint                     `gorm:"column:total_charged_count" json:"totalChargedCount"`
+	ProductPlan        ProductPlan              `gorm:"foreignKey:ProductPlanID;references:ID" json:"-"`
+	ChargedCount       int                      `gorm:"column:charged_count" json:"chargedCount"`
+	TotalChargedCount  int                      `gorm:"column:total_charged_count" json:"totalChargedCount"`
 	Suspended          bool                     `gorm:"column:suspended" json:"suspended"`
 	CreatedAt          time.Time                `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
 	UpdatedAt          time.Time                `gorm:"column:updated_at;autoUpdateTime" json:"updatedAt"`
@@ -51,7 +52,7 @@ func (uss *UserSubscriptionStore) Create(us UserSubscription) (*UserSubscription
 }
 
 func (uss *UserSubscriptionStore) FindBy(filter dto.UserSubscriptionFilterDto, start, limit int) ([]UserSubscription, error) {
-	subscriptions := []UserSubscription{}
+	var subscriptions []UserSubscription
 
 	query := uss.db.Model(&UserSubscription{})
 
@@ -109,6 +110,14 @@ func (uss *UserSubscriptionStore) FindBy(filter dto.UserSubscriptionFilterDto, s
 		query = query.Where("updated_at <= ?", filter.UpdatedAt.Max)
 	}
 
+	if filter.PreloadUser {
+		query = query.Preload("User")
+	}
+
+	if filter.PreloadProductPlan {
+		query = query.Preload("ProductPlan")
+	}
+
 	tx := query.Offset(start).Limit(limit).Find(&subscriptions)
 
 	if tx == nil {
@@ -118,6 +127,8 @@ func (uss *UserSubscriptionStore) FindBy(filter dto.UserSubscriptionFilterDto, s
 }
 
 func (uss *UserSubscriptionStore) FindOne(filter dto.UserSubscriptionFilterDto) (*UserSubscription, error) {
+	filter.PreloadUser = true
+	filter.PreloadProductPlan = true
 	sub, err := uss.FindBy(filter, 0, 1)
 	if err != nil {
 		return nil, err
@@ -132,4 +143,12 @@ func (uss *UserSubscriptionStore) FindBySubscriptionID(subscriptionID string) (*
 	var user UserSubscription
 	err := uss.db.Where(&UserSubscription{SubscriptionID: subscriptionID}).First(&user).Error
 	return &user, err
+}
+
+func (uss *UserSubscriptionStore) Save(us *UserSubscription) error {
+	tx := uss.db.Save(&us)
+	if tx == nil {
+		return gorm.ErrRecordNotFound
+	}
+	return tx.Error
 }

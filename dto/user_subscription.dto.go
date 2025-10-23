@@ -16,4 +16,6 @@ type UserSubscriptionFilterDto struct {
 	TotalChargedCount  MinMax[uint]               `json:"total_charged_count;omitempty"`
 	CreatedAt          MinMax[time.Time]          `json:"created_at;omitempty"`
 	UpdatedAt          MinMax[time.Time]          `json:"updated_at;omitempty"`
+	PreloadUser        bool
+	PreloadProductPlan bool
 }
