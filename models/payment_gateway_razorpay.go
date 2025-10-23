@@ -208,12 +208,12 @@ func (rpg *RazorpayPG) initiatePaymentSubscription(productPlan *ProductPlan, use
 		Suspended:          false,
 	}
 
-	transaction, err := rpg.TransactionStore.CreateTransaction(txn, user)
-	if err != nil {
+	if _, err = rpg.UserSubscriptionStore.Create(userSub); err != nil {
 		return nil, err
 	}
 
-	if _, err = rpg.UserSubscriptionStore.Create(userSub); err != nil {
+	transaction, err := rpg.TransactionStore.CreateTransaction(txn, user)
+	if err != nil {
 		return nil, err
 	}
 

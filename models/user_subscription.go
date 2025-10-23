@@ -146,7 +146,7 @@ func (uss *UserSubscriptionStore) FindBySubscriptionID(subscriptionID string) (*
 }
 
 func (uss *UserSubscriptionStore) Save(us *UserSubscription) error {
-	tx := uss.db.Save(&us)
+	tx := uss.db.Save(us)
 	if tx == nil {
 		return gorm.ErrRecordNotFound
 	}

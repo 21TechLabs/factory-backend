@@ -279,6 +279,7 @@ func (ppc *PaymentPlanController) ProcessWebhook(w http.ResponseWriter, r *http.
 			utils.ResponseWithJSON(ppc.Logger, w, http.StatusBadRequest, utils.Map{
 				"message": "Invalid request body",
 			})
+			return
 		}
 		_, txErr = gateway.ProcessSubscriptions(_body)
 	}

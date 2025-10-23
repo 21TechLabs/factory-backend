@@ -14,7 +14,7 @@ import (
 type JSONMap[T any] map[string]T
 
 // Value implements the driver.Valuer interface, converting the map to a JSON string.
-func (m *JSONMap[T]) Value() (driver.Value, error) {
+func (m JSONMap[T]) Value() (driver.Value, error) {
 	if m == nil {
 		return nil, nil
 	}
@@ -27,16 +27,16 @@ func (m *JSONMap[T]) Scan(value interface{}) error {
 	if !ok {
 		return errors.New(fmt.Sprint("Failed to unmarshal JSONB value:", value))
 	}
-	return json.Unmarshal(bytes, &m)
+	return json.Unmarshal(bytes, m)
 }
 
 // GormDataType sets the GORM data type for the custom JSONMap
-func (*JSONMap[T]) GormDataType() string {
+func (JSONMap[T]) GormDataType() string {
 	return "json"
 }
 
 // GormDBDataType ensures compatibility with different database dialects.
-func (*JSONMap[T]) GormDBDataType(db *gorm.DB, field *schema.Field) string {
+func (JSONMap[T]) GormDBDataType(db *gorm.DB, field *schema.Field) string {
 	switch db.Dialector.Name() {
 	case "sqlite":
 		return "JSON"
@@ -52,7 +52,7 @@ func (*JSONMap[T]) GormDBDataType(db *gorm.DB, field *schema.Field) string {
 type StringSlice []string
 
 // Value converts the slice to a JSON string for database storage.
-func (s *StringSlice) Value() (driver.Value, error) {
+func (s StringSlice) Value() (driver.Value, error) {
 	return json.Marshal(s)
 }
 
@@ -66,6 +66,6 @@ func (s *StringSlice) Scan(value interface{}) error {
 }
 
 // GormDataType sets the GORM data type.
-func (*StringSlice) GormDataType() string {
+func (StringSlice) GormDataType() string {
 	return "json"
 }
