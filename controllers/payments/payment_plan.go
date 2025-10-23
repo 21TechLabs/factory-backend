@@ -193,7 +193,7 @@ func (ppc *PaymentPlanController) ProcessWebhook(w http.ResponseWriter, r *http.
 
 	if err != nil {
 		ppc.Logger.Printf("Error getting payment gateway: %v", err)
-		utils.ErrorResponse(ppc.Logger, w, http.StatusBadRequest, []byte(err.Error()))
+		utils.ErrorResponse(ppc.Logger, w, http.StatusNotFound, []byte(err.Error()))
 		return
 	}
 

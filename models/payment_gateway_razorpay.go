@@ -1,6 +1,7 @@
 package models
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"time"
@@ -156,6 +157,10 @@ func (rpg *RazorpayPG) initiatePaymentOneTime(productPlan *ProductPlan, user *Us
 
 func (rpg *RazorpayPG) initiatePaymentSubscription(productPlan *ProductPlan, user *User) (*Transaction, error) {
 	subscriptionPlanID := productPlan.PaymentGatewayID[PaymentGatewayRazorpay]
+
+	if subscriptionPlanID == "" {
+		return nil, fmt.Errorf("missing Razorpay plan_id for product plan %d", productPlan.ID)
+	}
 
 	var subscriptionBody = RazorpayCreateSubscription{
 		PlanID:         subscriptionPlanID,
@@ -347,6 +352,8 @@ func (rpg *RazorpayPG) ProcessSubscriptions(subscription RazorpayBaseEvent[Razor
 	userSub.StartDate = time.Unix(subEntity.StartAt, 0)
 	userSub.EndDate = time.Unix(subEntity.EndAt, 0)
 
+	var nTxn *Transaction
+
 	switch subEvent {
 	case utils.SubscriptionStatusActive:
 		userSub.IsActive = true
@@ -364,7 +371,16 @@ func (rpg *RazorpayPG) ProcessSubscriptions(subscription RazorpayBaseEvent[Razor
 		userSub.IsActive = false
 	case utils.SubscriptionStatusCharged:
 		userSub.IsActive = true
-		// everytime a sub is charged, we need to create a new txn
+
+		if subscription.Payload.Payment == nil {
+			rpg.Logger.Printf("subscription %s charged event without payment payload; skipping txn creation", subId)
+			return nil, errors.New("subscription charged event without payment payload")
+		}
+		// Ensure relations are loaded
+		if userSub.ProductPlanID != 0 && (userSub.ProductPlan.ID == 0) {
+			return nil, errors.New("failed to load product plan")
+		}
+
 		productPlan := userSub.ProductPlan
 		paymentEntity := subscription.Payload.Payment.Entity
 		txn := &dto.TransactionCreateDto{
@@ -377,11 +393,12 @@ func (rpg *RazorpayPG) ProcessSubscriptions(subscription RazorpayBaseEvent[Razor
 			PaymentGatewayRedirectURL:   "",
 			PaymentGatewayTransactionID: paymentEntity.ID,
 		}
-		_, err = rpg.TransactionStore.CreateTransaction(txn, &userSub.User)
+		_nTxn, err := rpg.TransactionStore.CreateTransaction(txn, &userSub.User)
 
 		if err != nil {
 			return nil, err
 		}
+		nTxn = &_nTxn
 	default:
 		return nil, utils.ErrInvalidSubscription
 	}
@@ -390,5 +407,13 @@ func (rpg *RazorpayPG) ProcessSubscriptions(subscription RazorpayBaseEvent[Razor
 		return nil, err
 	}
 
-	return nil, nil
+	if nTxn == nil {
+		//	fetch txn using subscription id
+		nTxn, err = rpg.TransactionStore.GetByPaymentGatewayTransactionID(subId)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return nTxn, nil
 }
