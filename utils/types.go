@@ -1,5 +1,7 @@
 package utils
 
+import "slices"
+
 type Number interface {
 	int | int8 | int16 | int32 | int64 | uint | uint8 | uint16 | uint32 | uint64 | float32 | float64
 }
@@ -25,6 +27,21 @@ const (
 	SubscriptionStatusResumed   SubscriptionStatus = "subscription.resumed"
 	SubscriptionStatusCharged   SubscriptionStatus = "subscription.charged"
 )
+
+var SubscriptionHooks []SubscriptionStatus = []SubscriptionStatus{
+	SubscriptionStatusActive,
+	SubscriptionStatusPending,
+	SubscriptionStatusHalted,
+	SubscriptionStatusCancelled,
+	SubscriptionStatusCompleted,
+	SubscriptionStatusPaused,
+	SubscriptionStatusResumed,
+	SubscriptionStatusCharged,
+}
+
+func SubscriptionWebhookIsValid(webhook string) bool {
+	return webhook == "order.paid" || webhook == "subscription.created" || slices.Contains[[]SubscriptionStatus, SubscriptionStatus](SubscriptionHooks, SubscriptionStatus(webhook))
+}
 
 type TransactionStatus string
 
