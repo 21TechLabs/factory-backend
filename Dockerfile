@@ -1,5 +1,5 @@
 # Use the official Golang image as the base
-FROM golang:1.24.3-alpine
+FROM golang:1.25.3-alpine
 # Set the working directory to /app
 WORKDIR /app
 # Copy the Go source code to the working directory
