@@ -20,21 +20,21 @@ func NewProductPlanStore(db *gorm.DB, us *UserStore) *ProductPlanStore {
 }
 
 type ProductPlan struct {
-	ID               uint              `gorm:"primaryKey;autoIncrement" json:"id"`
-	PlanName         string            `gorm:"column:plan_name" json:"planName"`
-	PlanDescription  string            `gorm:"column:plan_description" json:"planDescription"`
-	PlanPrice        float64           `gorm:"column:plan_price" json:"planPrice"`
-	PlanCurrency     utils.Currency    `gorm:"column:plan_currency" json:"planCurrency"`
-	PlanDuration     time.Duration     `gorm:"column:plan_duration" json:"planDuration"`
-	PlanType         utils.PlanType    `gorm:"column:plan_type" json:"planType"`
-	Tokens           int64             `gorm:"column:tokens" json:"tokens"`
-	IsActive         bool              `gorm:"column:is_active" json:"isActive"`
-	Features         utils.StringSlice `gorm:"type:json;column:features" json:"features"`
-	UpdatedBy        uint              `gorm:"column:updated_by" json:"updatedBy"`
-	UpdatedByUser    User              `gorm:"foreignKey:UpdatedBy;references:ID" json:"-"`
-	PaymentGatewayID utils.JSONMap     `gorm:"type:json;column:payment_gateway_id" json:"paymentGatewayId"`
-	CreatedAt        time.Time         `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
-	UpdatedAt        time.Time         `gorm:"column:updated_at;autoUpdateTime" json:"updatedAt"`
+	ID               uint                  `gorm:"primaryKey;autoIncrement" json:"id"`
+	PlanName         string                `gorm:"column:plan_name" json:"planName"`
+	PlanDescription  string                `gorm:"column:plan_description" json:"planDescription"`
+	PlanPrice        float64               `gorm:"column:plan_price" json:"planPrice"`
+	PlanCurrency     utils.Currency        `gorm:"column:plan_currency" json:"planCurrency"`
+	PlanDuration     time.Duration         `gorm:"column:plan_duration" json:"planDuration"`
+	PlanType         utils.PlanType        `gorm:"column:plan_type" json:"planType"`
+	Tokens           int64                 `gorm:"column:tokens" json:"tokens"`
+	IsActive         bool                  `gorm:"column:is_active" json:"isActive"`
+	Features         utils.StringSlice     `gorm:"type:json;column:features" json:"features"`
+	UpdatedBy        uint                  `gorm:"column:updated_by" json:"updatedBy"`
+	UpdatedByUser    User                  `gorm:"foreignKey:UpdatedBy;references:ID" json:"-"`
+	PaymentGatewayID utils.JSONMap[string] `gorm:"type:json;column:payment_gateway_id" json:"paymentGatewayId"`
+	CreatedAt        time.Time             `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
+	UpdatedAt        time.Time             `gorm:"column:updated_at;autoUpdateTime" json:"updatedAt"`
 }
 
 func (pps *ProductPlanStore) CreateProductPlan(plan *dto.ProductPlanCreate, user *User) error {

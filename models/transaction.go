@@ -34,20 +34,12 @@ type Transaction struct {
 	PaymentGatewayRedirectURL   string                  `gorm:"column:payment_gateway_redirect_url" json:"paymentGatewayRedirectUrl"`
 	PaymentGatewayTransactionID string                  `gorm:"column:transaction_id" json:"transactionId"`
 	ProductPlanID               *uint                   `gorm:"column:product_plan_id" json:"-"`
-	PaymentPlan                 *ProductPlan            `gorm:"foreignKey:ProductPlanID;references:ID" json:"productPlan"`
+	ProductPlan                 *ProductPlan            `gorm:"foreignKey:ProductPlanID;references:ID" json:"productPlan"`
+	UserSubscriptionID          *uint                   `gorm:"column:user_subscription_id" json:"-"`
+	UserSubscription            *UserSubscription       `gorm:"foreignKey:UserSubscriptionID;references:ID" json:"userSubscription"`
 	CreatedAt                   time.Time               `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
 	UpdatedAt                   time.Time               `gorm:"column:updated_at;autoUpdateTime" json:"updatedAt"`
 }
-
-// transaction := &Transaction{
-// 		UserID:             rpg.User.ID,
-// 		Token:              rpg.ProductPlan.Tokens,
-// 		Amount:             rpg.ProductPlan.PlanPrice,
-// 		Currency:           rpg.ProductPlan.PlanCurrency,
-// 		Status:             utils.TransactionStatusPending,
-// 		ProductPlanID:      &rpg.ProductPlan.ID,
-// 		PaymentGatewayName: PaymentGatewayRazorpay,
-// 	}
 
 func (ts *TransactionStore) CreateTransaction(transaction *dto.TransactionCreateDto, user *User) (Transaction, error) {
 
