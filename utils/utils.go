@@ -13,7 +13,8 @@ import (
 )
 
 func LoadEnv() error {
-	return godotenv.Load()
+	godotenv.Load()
+	return nil
 }
 
 func GetEnv(envName string, allowEmpty bool) string {
