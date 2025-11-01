@@ -45,29 +45,6 @@ func (rco *RazorpayCreateOrder) ToMap() map[string]interface{} {
 	}
 }
 
-/*
-
-data := map[string]interface{}{
-  "plan_id":"plan_JcwJfpjN6VHSGv",
-  "total_count":3,
-  "quantity": 1,
-  "customer_notify":1,
-  "addons":[]interface{}{
-    map[string]interface{}{
-      "item":map[string]interface{}{
-        "name":"Delivery charges",
-        "amount":3000,
-        "currency":"INR",
-      },
-    },
-  },
-  "notes":map[string]interface{}{
-    "notes_key_1":"Tea, Earl Grey, Hot",
-    "notes_key_2":"Tea, Earl Grey… decaf.",
-  },
-}
-*/
-
 type RazorpayCreateSubscription struct {
 	PlanID         string                `json:"plan_id"`
 	TotalCount     int                   `json:"total_count"`
