@@ -61,6 +61,7 @@ func NewApplication() (*Application, error) {
 		models.File{},
 		models.ProductPlan{},
 		models.Transaction{},
+		models.UserSubscription{},
 	}
 
 	for _, model := range modelsToMigrate {

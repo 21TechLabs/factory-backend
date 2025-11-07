@@ -18,7 +18,8 @@ type SubscriptionStatus string
 
 // Constants for various subscription statuses.
 const (
-	SubscriptionStatusActive    SubscriptionStatus = "subscription.active"
+	SubscriptionStatusInitiated SubscriptionStatus = "subscription.initiated"
+	SubscriptionStatusActivated SubscriptionStatus = "subscription.activated"
 	SubscriptionStatusPending   SubscriptionStatus = "subscription.pending"
 	SubscriptionStatusHalted    SubscriptionStatus = "subscription.halted"
 	SubscriptionStatusCancelled SubscriptionStatus = "subscription.cancelled"
@@ -29,7 +30,7 @@ const (
 )
 
 var SubscriptionHooks []SubscriptionStatus = []SubscriptionStatus{
-	SubscriptionStatusActive,
+	SubscriptionStatusActivated,
 	SubscriptionStatusPending,
 	SubscriptionStatusHalted,
 	SubscriptionStatusCancelled,

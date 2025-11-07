@@ -9,6 +9,7 @@ import (
 	"github.com/21TechLabs/factory-backend/dto"
 	"github.com/21TechLabs/factory-backend/utils"
 	"github.com/razorpay/razorpay-go"
+	"gorm.io/gorm"
 )
 
 var RazorpayClient *razorpay.Client
@@ -139,6 +140,15 @@ func (rpg *RazorpayPG) initiatePaymentSubscription(productPlan *ProductPlan, use
 		return nil, fmt.Errorf("missing Razorpay plan_id for product plan %d", productPlan.ID)
 	}
 
+	existingUserSubscription, err := rpg.UserSubscriptionStore.FindUserSubscriptionForProductPlan(user.ID, productPlan.ID)
+
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
+	}
+	if existingUserSubscription.UserID == user.ID {
+		return nil, errors.New("user already has an active subscription for the payment plan")
+	}
+
 	var subscriptionBody = RazorpayCreateSubscription{
 		PlanID:         subscriptionPlanID,
 		TotalCount:     1,
@@ -176,7 +186,7 @@ func (rpg *RazorpayPG) initiatePaymentSubscription(productPlan *ProductPlan, use
 		StartDate:          startAt,
 		EndDate:            endAt,
 		IsActive:           false,
-		SubscriptionStatus: utils.SubscriptionStatusPending,
+		SubscriptionStatus: utils.SubscriptionStatusInitiated,
 		PaymentGatewayName: PaymentGatewayRazorpay,
 		SubscriptionID:     sub.ID,
 		ProductPlanID:      productPlan.ID,
@@ -322,6 +332,11 @@ func (rpg *RazorpayPG) ProcessSubscriptions(subscription RazorpayBaseEvent[Razor
 
 	subEntity := subscription.Payload.Subscription.Entity
 
+	if userSub.SubscriptionStatus == utils.SubscriptionStatusCompleted {
+		rpg.Logger.Printf("subscription %s already processed; ignoring event", subId)
+		return nil, errors.New("subscription already processed")
+	}
+
 	userSub.SubscriptionStatus = subEvent
 	userSub.ChargedCount = subEntity.PaidCount
 	userSub.TotalChargedCount = subEntity.TotalCount
@@ -332,7 +347,7 @@ func (rpg *RazorpayPG) ProcessSubscriptions(subscription RazorpayBaseEvent[Razor
 	var nTxn *Transaction
 
 	switch subEvent {
-	case utils.SubscriptionStatusActive:
+	case utils.SubscriptionStatusActivated:
 		userSub.IsActive = true
 	case utils.SubscriptionStatusPaused:
 		userSub.IsActive = false
@@ -343,7 +358,7 @@ func (rpg *RazorpayPG) ProcessSubscriptions(subscription RazorpayBaseEvent[Razor
 	case utils.SubscriptionStatusCompleted:
 		userSub.IsActive = false
 	case utils.SubscriptionStatusPending:
-		userSub.IsActive = false
+		userSub.IsActive = true
 	case utils.SubscriptionStatusHalted:
 		userSub.IsActive = false
 	case utils.SubscriptionStatusCharged:
@@ -391,6 +406,15 @@ func (rpg *RazorpayPG) ProcessSubscriptions(subscription RazorpayBaseEvent[Razor
 			return nil, err
 		}
 	}
+
+	nTxn.Status = utils.TransactionStatusCompleted
+	nTxn.UserSubscriptionID = &userSub.ID
+
+	if err := rpg.TransactionStore.Update(nTxn); err != nil {
+		return nil, err
+	}
+
+	fmt.Println("---------------------- Transaction: ", nTxn)
 
 	return nTxn, nil
 }

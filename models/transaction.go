@@ -53,6 +53,7 @@ func (ts *TransactionStore) CreateTransaction(transaction *dto.TransactionCreate
 		PaymentGatewayName:          transaction.PaymentGatewayName,
 		PaymentGatewayRedirectURL:   transaction.PaymentGatewayRedirectURL,
 		PaymentGatewayTransactionID: transaction.PaymentGatewayTransactionID,
+		UserSubscriptionID:          transaction.UserSubscriptionID,
 		ReceiptId:                   uuid.NewString(),
 	}
 
@@ -78,7 +79,7 @@ func (ts *TransactionStore) Update(txn *Transaction) error {
 
 func (ts *TransactionStore) GetByPaymentGatewayTransactionID(transactionID string) (*Transaction, error) {
 	var transaction Transaction
-	query := ts.DB.Model(&Transaction{}).Where("payment_gateway_transaction_id = ?", transactionID)
+	query := ts.DB.Model(&Transaction{}).Where("transaction_id = ?", transactionID)
 	query = query.Preload("User")
 	result := query.First(&transaction)
 	if result.Error != nil {

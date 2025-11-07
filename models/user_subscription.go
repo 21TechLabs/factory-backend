@@ -117,6 +117,7 @@ func (uss *UserSubscriptionStore) FindBy(filter dto.UserSubscriptionFilterDto, s
 	if filter.PreloadProductPlan {
 		query = query.Preload("ProductPlan")
 	}
+	query.Order("created_at DESC")
 
 	tx := query.Offset(start).Limit(limit).Find(&subscriptions)
 
@@ -151,4 +152,10 @@ func (uss *UserSubscriptionStore) Save(us *UserSubscription) error {
 		return gorm.ErrRecordNotFound
 	}
 	return tx.Error
+}
+
+func (uss *UserSubscriptionStore) FindUserSubscriptionForProductPlan(userId, productPlanId uint) (*UserSubscription, error) {
+	var userSubscription UserSubscription
+	err := uss.db.Where(&UserSubscription{UserID: userId, ProductPlanID: productPlanId, IsActive: true}).First(&userSubscription).Error
+	return &userSubscription, err
 }
