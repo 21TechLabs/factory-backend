@@ -187,8 +187,6 @@ func (ppc *PaymentPlanController) DeletePaymentPlan(w http.ResponseWriter, r *ht
 func (ppc *PaymentPlanController) ProcessWebhook(w http.ResponseWriter, r *http.Request) {
 	paymentGateway := r.PathValue("paymentGateway")
 
-	webhook := r.PathValue("webhook")
-
 	gateway, err := models.GetPaymentGateway(paymentGateway, ppc.Logger, ppc.TransactionStore, ppc.UserStore, ppc.UserSubscriptionStore)
 
 	if err != nil {
@@ -203,7 +201,10 @@ func (ppc *PaymentPlanController) ProcessWebhook(w http.ResponseWriter, r *http.
 		return
 	}
 	defer r.Body.Close()
-
+	fmt.Println(string(rawBody))
+	fmt.Println(r.Header.Get("X-Razorpay-Signature"))
+	fmt.Println(RazorpayHMECSecret)
+	fmt.Println("==============================================================================================")
 	isValid := utils.ValidateHeaderHMACSha256(rawBody, RazorpayHMECSecret, r.Header.Get("X-Razorpay-Signature"))
 	if !isValid {
 		utils.ResponseWithJSON(ppc.Logger, w, http.StatusBadRequest, utils.Map{
@@ -212,13 +213,43 @@ func (ppc *PaymentPlanController) ProcessWebhook(w http.ResponseWriter, r *http.
 		return
 	}
 
-	var body any
+	var tempBodyDecoded models.RazorpayBaseEvent[any]
+	err = json.Unmarshal(rawBody, &tempBodyDecoded)
+	if err != nil {
+		utils.ResponseWithJSON(ppc.Logger, w, http.StatusBadRequest, utils.Map{
+			"message": "Invalid request body",
+		})
+		return
+	}
+
+	webhook := tempBodyDecoded.Event
+
+	var txErr error = nil
 
 	switch webhook {
 	case "order.paid":
-		body = models.RazorpayBaseEvent[models.RazorpayOrderPaidPayload]{}
+		// convert body to OrderPaidPayload
+		var body models.RazorpayBaseEvent[models.RazorpayOrderPaidPayload]
+		err := json.Unmarshal(rawBody, &body)
+		if err != nil {
+			ppc.Logger.Printf("Error unmarshalling request body order.paid: %v", err)
+			utils.ResponseWithJSON(ppc.Logger, w, http.StatusBadRequest, utils.Map{
+				"message": "Invalid request body",
+			})
+			return
+		}
+		_, txErr = gateway.CaptureOrderPaid(body)
 	case "payment.failed":
-		body = models.RazorpayBaseEvent[models.RazorpayPaymentFailedPayload]{}
+		body := models.RazorpayBaseEvent[models.RazorpayPaymentFailedPayload]{}
+		err := json.Unmarshal(rawBody, &body)
+		if err != nil {
+			ppc.Logger.Printf("Error unmarshalling request body payment.failed: %v", err)
+			utils.ResponseWithJSON(ppc.Logger, w, http.StatusBadRequest, utils.Map{
+				"message": "Invalid request body",
+			})
+			return
+		}
+		_, txErr = gateway.ProcessFailedPayments(body)
 	default:
 		if !utils.SubscriptionWebhookIsValid(webhook) {
 			ppc.Logger.Printf("Unsupported webhook: %s", webhook)
@@ -227,61 +258,15 @@ func (ppc *PaymentPlanController) ProcessWebhook(w http.ResponseWriter, r *http.
 			})
 			return
 		}
-		body = models.RazorpayBaseEvent[models.RazorpaySubscriptionEventsPayload]{}
-	}
-
-	if err := json.Unmarshal(rawBody, &body); err != nil {
-		ppc.Logger.Printf("Error unmarshalling request body: %v", err)
-		utils.ResponseWithJSON(ppc.Logger, w, http.StatusBadRequest, utils.Map{
-			"message": "Invalid request body",
-		})
-		return
-	}
-
-	if err := utils.ValidateStruct(body); err != nil {
-		ppc.Logger.Printf("Validation error: %v", err)
-		utils.ResponseWithJSON(ppc.Logger, w, http.StatusBadRequest, utils.Map{
-			"message": err.Error(),
-		})
-		return
-	}
-
-	var txErr error = nil
-	switch webhook {
-	case "order.paid":
-		_body, ok := body.(models.RazorpayBaseEvent[models.RazorpayOrderPaidPayload])
-		if !ok {
+		body := models.RazorpayBaseEvent[models.RazorpaySubscriptionEventsPayload]{}
+		err := json.Unmarshal(rawBody, &body)
+		if err != nil {
+			ppc.Logger.Printf("Error unmarshalling request body %s: %v", webhook, err)
 			utils.ResponseWithJSON(ppc.Logger, w, http.StatusBadRequest, utils.Map{
 				"message": "Invalid request body",
 			})
-			return
 		}
-		_, txErr = gateway.CaptureOrderPaid(_body)
-	case "payment.failed":
-		_body, ok := body.(models.RazorpayBaseEvent[models.RazorpayPaymentFailedPayload])
-		if !ok {
-			utils.ResponseWithJSON(ppc.Logger, w, http.StatusBadRequest, utils.Map{
-				"message": "Invalid request body",
-			})
-			return
-		}
-		_, txErr = gateway.ProcessFailedPayments(_body)
-	default:
-		if !utils.SubscriptionWebhookIsValid(webhook) {
-			ppc.Logger.Printf("Unsupported webhook: %s", webhook)
-			utils.ResponseWithJSON(ppc.Logger, w, http.StatusBadRequest, utils.Map{
-				"message": "Invalid request body",
-			})
-			return
-		}
-		_body, ok := body.(models.RazorpayBaseEvent[models.RazorpaySubscriptionEventsPayload])
-		if !ok {
-			utils.ResponseWithJSON(ppc.Logger, w, http.StatusBadRequest, utils.Map{
-				"message": "Invalid request body",
-			})
-			return
-		}
-		_, txErr = gateway.ProcessSubscriptions(_body)
+		_, txErr = gateway.ProcessSubscriptions(body)
 	}
 
 	if txErr != nil {
@@ -348,11 +333,11 @@ func (ppc *PaymentPlanController) ProductBuy(w http.ResponseWriter, r *http.Requ
 	txn, err := gateway.InitiatePayment(plan, user, count)
 
 	if err != nil {
-		utils.ErrorResponse(ppc.Logger, w, http.StatusInternalServerError, []byte(err.Error()))
+		utils.ErrorResponse(ppc.Logger, w, http.StatusBadRequest, []byte(err.Error()))
 		return
 	}
 
-	ppc.Logger.Printf("Payment initiated successfully for user %s with transaction ID %d", user.ID, txn.ID)
+	ppc.Logger.Printf("Payment initiated successfully for user %d with transaction ID %d", user.ID, txn.ID)
 
 	utils.ResponseWithJSON(ppc.Logger, w, http.StatusOK, utils.Map{
 		"message": "Payment initiated successfully",

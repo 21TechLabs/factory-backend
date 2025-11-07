@@ -47,8 +47,8 @@ type RazorpayCardDetails struct {
 	Issuer        any    `json:"issuer"` // Can be null
 	International bool   `json:"international"`
 	EMI           bool   `json:"emi"`
-	ExpiryMonth   int    `json:"expiry_month,omitempty"` // Added field
-	ExpiryYear    int    `json:"expiry_year,omitempty"`  // Added field
+	ExpiryMonth   any    `json:"expiry_month,omitempty"` // Added field
+	ExpiryYear    any    `json:"expiry_year,omitempty"`  // Added field
 }
 
 // RazorpayPaymentEntity defines the structure of the payment object.

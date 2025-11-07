@@ -1,4 +1,4 @@
-POST http://localhost:8000/user/create
+POST https://vital-logically-lemming.ngrok-free.app/user/create
 content-type: application/json
 
 {
@@ -9,7 +9,7 @@ content-type: application/json
 }
 
 ### Login
-POST http://localhost:8000/user/login
+POST https://vital-logically-lemming.ngrok-free.app/user/login
 content-type: application/json
 
 {
@@ -18,10 +18,10 @@ content-type: application/json
 }
 
 ### Request Reset Password Link
-GET http://localhost:8000/user/reset-password?email=abhay1029singh@gmail.com
+GET https://vital-logically-lemming.ngrok-free.app/user/reset-password?email=abhay1029singh@gmail.com
 
 ### Reset Password
-POST http://localhost:8000/user/reset-password
+POST https://vital-logically-lemming.ngrok-free.app/user/reset-password
 content-type: application/json
 
 {

@@ -11,4 +11,5 @@ type TransactionCreateDto struct {
 	PaymentGatewayName          string                  `json:"paymentGatewayName"`
 	PaymentGatewayRedirectURL   string                  `json:"paymentGatewayRedirectUrl"`
 	PaymentGatewayTransactionID string                  `json:"transactionId"`
+	UserSubscriptionID          *uint                   `json:"userSubscriptionId,omitempty"`
 }
