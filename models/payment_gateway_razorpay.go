@@ -151,7 +151,7 @@ func (rpg *RazorpayPG) initiatePaymentSubscription(productPlan *ProductPlan, use
 
 	var subscriptionBody = RazorpayCreateSubscription{
 		PlanID:         subscriptionPlanID,
-		TotalCount:     1,
+		TotalCount:     12 * 4,
 		Quantity:       1,
 		CustomerNotify: 1,
 		Addons:         nil,
