@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/21TechLabs/factory-backend/utils"
+	"github.com/google/uuid"
 	"github.com/minio/minio-go/v7"
 	"gorm.io/gorm"
 )
@@ -22,8 +23,8 @@ func NewFileStore(db *gorm.DB) *FileStore {
 }
 
 type File struct {
-	ID        uint           `json:"id" gorm:"primaryKey;autoIncrement"`
-	UserID    uint           `gorm:"not null;index"`
+	ID        uuid.UUID      `gorm:"type:uuid;default:uuid_generate_v4()" json:"id"`
+	UserID    uuid.UUID      `gorm:"not null;index"`
 	Name      string         `json:"name" gorm:"column:name"`
 	Type      string         `json:"type" gorm:"column:file_type"`
 	Etag      string         `json:"-" gorm:"column:etag"`
@@ -79,7 +80,7 @@ func (f *File) Delete() error {
 	return nil
 }
 
-func (fs *FileStore) UploadFile(files []FileUpload, userId uint) ([]File, error) {
+func (fs *FileStore) UploadFile(files []FileUpload, userId uuid.UUID) ([]File, error) {
 	var fileObjs []File
 	for _, file := range files {
 		fileObj := File{

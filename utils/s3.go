@@ -78,14 +78,10 @@ func S3UploadFile(bucketName string, objectKey string, filePath *multipart.FileH
 		ContentType: contentType,
 	})
 	if err != nil {
-		log.Fatalln(err)
+		return minio.UploadInfo{}, err
 	}
 
 	log.Printf("Successfully uploaded %s of size %d\n", objectName, uploadOutput.Size)
-
-	if err != nil {
-		return minio.UploadInfo{}, err
-	}
 
 	return uploadOutput, nil
 }

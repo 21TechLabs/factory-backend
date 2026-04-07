@@ -5,6 +5,7 @@ import (
 
 	"github.com/21TechLabs/factory-backend/dto"
 	"github.com/21TechLabs/factory-backend/utils"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -21,8 +22,8 @@ func NewUserSubscriptionStore(db *gorm.DB, userStore *UserStore) *UserSubscripti
 }
 
 type UserSubscription struct {
-	ID                 uint                     `gorm:"primaryKey;autoIncrement" json:"id"`
-	UserID             uint                     `gorm:"column:user_id" json:"userId"`
+	ID                 uuid.UUID                `gorm:"type:uuid;default:uuid_generate_v4()" json:"id"`
+	UserID             uuid.UUID                `gorm:"column:user_id" json:"userId"`
 	User               User                     `gorm:"foreignKey:UserID;references:ID" json:"-"`
 	StartDate          time.Time                `gorm:"column:start_date" json:"startDate"`
 	EndDate            time.Time                `gorm:"column:end_date" json:"endDate"`
@@ -30,7 +31,7 @@ type UserSubscription struct {
 	SubscriptionStatus utils.SubscriptionStatus `gorm:"column:status" json:"status"`
 	PaymentGatewayName string                   `gorm:"column:payment_gateway_name" json:"paymentGatewayName"`
 	SubscriptionID     string                   `gorm:"column:subscription_id;unique" json:"subscriptionId"`
-	ProductPlanID      uint                     `gorm:"column:product_plan_id" json:"-"`
+	ProductPlanID      uuid.UUID                `gorm:"column:product_plan_id" json:"-"`
 	ProductPlan        ProductPlan              `gorm:"foreignKey:ProductPlanID;references:ID" json:"-"`
 	ChargedCount       int                      `gorm:"column:charged_count" json:"chargedCount"`
 	TotalChargedCount  int                      `gorm:"column:total_charged_count" json:"totalChargedCount"`
@@ -134,7 +135,7 @@ func (uss *UserSubscriptionStore) FindOne(filter dto.UserSubscriptionFilterDto) 
 	if err != nil {
 		return nil, err
 	}
-	if sub == nil || len(sub) == 0 {
+	if len(sub) == 0 {
 		return nil, gorm.ErrRecordNotFound
 	}
 	return &sub[0], nil
@@ -154,7 +155,7 @@ func (uss *UserSubscriptionStore) Save(us *UserSubscription) error {
 	return tx.Error
 }
 
-func (uss *UserSubscriptionStore) FindUserSubscriptionForProductPlan(userId, productPlanId uint) (*UserSubscription, error) {
+func (uss *UserSubscriptionStore) FindUserSubscriptionForProductPlan(userId, productPlanId uuid.UUID) (*UserSubscription, error) {
 	var userSubscription UserSubscription
 	err := uss.db.Where(&UserSubscription{UserID: userId, ProductPlanID: productPlanId, IsActive: true}).First(&userSubscription).Error
 	return &userSubscription, err

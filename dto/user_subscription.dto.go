@@ -4,10 +4,11 @@ import (
 	"time"
 
 	"github.com/21TechLabs/factory-backend/utils"
+	"github.com/google/uuid"
 )
 
 type UserSubscriptionFilterDto struct {
-	UserIds            []uint                     `json:"user_ids,omitempty"`
+	UserIds            []uuid.UUID                `json:"user_ids,omitempty"`
 	StartDate          MinMax[time.Time]          `json:"start_date,omitempty"`
 	EndDate            MinMax[time.Time]          `json:"end_date,omitempty"`
 	IsActive           *bool                      `json:"is_active,omitempty"`

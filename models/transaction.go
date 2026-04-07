@@ -22,9 +22,9 @@ func NewTransactionStore(db *gorm.DB) *TransactionStore {
 }
 
 type Transaction struct {
-	ID                          uint                    `gorm:"primaryKey;autoIncrement" json:"id"`
+	ID                          uuid.UUID               `gorm:"type:uuid;default:uuid_generate_v4()" json:"id"`
 	ReceiptId                   string                  `gorm:"column:receipt_id;unique" json:"receipt_id"`
-	UserID                      uint                    `gorm:"column:user_id" json:"userId"`
+	UserID                      uuid.UUID               `gorm:"column:user_id" json:"userId"`
 	User                        User                    `gorm:"foreignKey:UserID;references:ID" json:"-"`
 	Token                       int64                   `gorm:"column:token" json:"token"`
 	Amount                      float64                 `gorm:"column:amount" json:"amount"`
@@ -33,9 +33,9 @@ type Transaction struct {
 	PaymentGatewayName          string                  `gorm:"column:payment_gateway_name" json:"paymentGatewayName"`
 	PaymentGatewayRedirectURL   string                  `gorm:"column:payment_gateway_redirect_url" json:"paymentGatewayRedirectUrl"`
 	PaymentGatewayTransactionID string                  `gorm:"column:transaction_id" json:"transactionId"`
-	ProductPlanID               *uint                   `gorm:"column:product_plan_id" json:"-"`
+	ProductPlanID               *uuid.UUID              `gorm:"column:product_plan_id" json:"-"`
 	ProductPlan                 *ProductPlan            `gorm:"foreignKey:ProductPlanID;references:ID" json:"productPlan"`
-	UserSubscriptionID          *uint                   `gorm:"column:user_subscription_id" json:"-"`
+	UserSubscriptionID          *uuid.UUID              `gorm:"column:user_subscription_id" json:"-"`
 	UserSubscription            *UserSubscription       `gorm:"foreignKey:UserSubscriptionID;references:ID" json:"userSubscription"`
 	CreatedAt                   time.Time               `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
 	UpdatedAt                   time.Time               `gorm:"column:updated_at;autoUpdateTime" json:"updatedAt"`
@@ -67,7 +67,7 @@ func (ts *TransactionStore) CreateTransaction(transaction *dto.TransactionCreate
 }
 
 func (ts *TransactionStore) Update(txn *Transaction) error {
-	if txn.ID == 0 {
+	if txn.ID.String() == "" {
 		return utils.ErrTransactionNotFound
 	}
 	result := ts.DB.Save(txn)

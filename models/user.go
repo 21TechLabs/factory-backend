@@ -15,6 +15,7 @@ import (
 	"github.com/21TechLabs/factory-backend/notifications"
 	"github.com/21TechLabs/factory-backend/notifications/templates"
 	"github.com/21TechLabs/factory-backend/utils"
+	"github.com/google/uuid"
 	"github.com/kataras/jwt"
 	"gorm.io/gorm"
 )
@@ -36,10 +37,10 @@ func NewUserStore(db *gorm.DB, fs *FileStore) *UserStore {
 }
 
 type User struct {
-	ID                     uint      `gorm:"primaryKey;autoIncrement;column:id" json:"id"`
+	ID                     uuid.UUID `gorm:"type:uuid;default:uuid_generate_v4()" json:"id"`
 	Name                   string    `gorm:"column:name" json:"name"`
 	Role                   UserRole  `gorm:"column:role" json:"role"`
-	Email                  string    `gorm:"column:email;uniqueIndex" json:"email"`
+	Email                  string    `gorm:"column:email;unique" json:"email"`
 	ProfilePicURI          string    `gorm:"column:profile_picture_url" json:"profilePicURI"`
 	EmailVerified          bool      `gorm:"column:email_verified" json:"emailVerified"`
 	EmailVerificationToken string    `gorm:"column:email_verification_token" json:"-"`
@@ -84,6 +85,7 @@ func (us *UserStore) UserCreate(user dto.UserCreateDto) (User, error) {
 		Email:           user.Email,
 		OptedInForEmail: true,
 		AccountCreated:  true,
+		Tokens:          10000,
 	}
 	var err error
 	newUser.Password, err = SaltPassword(user.Password, "")
@@ -216,7 +218,7 @@ func (us *UserStore) sendPasswordResetEmail(u *User, token string) error {
 	return nil
 }
 
-func (us *UserStore) UserGetById(id uint) (User, error) {
+func (us *UserStore) UserGetById(id uuid.UUID) (User, error) {
 	var userFromDb User = User{}
 
 	result := us.DB.Model(&User{}).Where("id = ?", id).First(&userFromDb)

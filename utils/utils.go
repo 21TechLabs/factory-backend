@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/google/uuid"
 	"github.com/joho/godotenv"
 )
 
@@ -108,4 +109,17 @@ func MapToStruct[T any](d any) (*T, error) {
 		return nil, err
 	}
 	return &result, nil
+}
+
+func StringToUID(r *http.Request, key string) (uuid.UUID, error) {
+	val := r.PathValue(key)
+	if val == "" {
+		return uuid.UUID{}, fmt.Errorf("missing path param %s", key)
+	}
+	uid, err := uuid.Parse(val)
+	if err != nil {
+		return uid, err
+	}
+	// n, err := strconv.ParseUint(val, 10, 64)
+	return uid, nil
 }

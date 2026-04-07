@@ -60,14 +60,9 @@ func (ppc *PaymentPlanController) CreateProductPlan(w http.ResponseWriter, r *ht
 }
 
 func (ppc *PaymentPlanController) UpdatePaymentPlan(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("id")
-	if id == "" {
-		utils.ErrorResponse(ppc.Logger, w, http.StatusBadRequest, []byte("Payment plan ID is required"))
-		return
-	}
-
 	// convert id to uint
-	planID, err := strconv.Atoi(id)
+	planID, err := utils.StringToUID(r, "id")
+
 	if err != nil {
 		utils.ErrorResponse(ppc.Logger, w, http.StatusBadRequest, []byte("Invalid payment plan ID"))
 		return
@@ -85,7 +80,7 @@ func (ppc *PaymentPlanController) UpdatePaymentPlan(w http.ResponseWriter, r *ht
 		return
 	}
 
-	err = ppc.ProductPlanStore.UpdateProductPlan(uint(planID), plan, user)
+	err = ppc.ProductPlanStore.UpdateProductPlan(planID, plan, user)
 	if err != nil {
 		utils.ErrorResponse(ppc.Logger, w, http.StatusInternalServerError, []byte(err.Error()))
 		return

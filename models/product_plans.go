@@ -6,6 +6,7 @@ import (
 
 	"github.com/21TechLabs/factory-backend/dto"
 	"github.com/21TechLabs/factory-backend/utils"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -20,7 +21,7 @@ func NewProductPlanStore(db *gorm.DB, us *UserStore) *ProductPlanStore {
 }
 
 type ProductPlan struct {
-	ID               uint                  `gorm:"primaryKey;autoIncrement" json:"id"`
+	ID               uuid.UUID             `gorm:"type:uuid;default:uuid_generate_v4()" json:"id"`
 	PlanName         string                `gorm:"column:plan_name" json:"planName"`
 	PlanDescription  string                `gorm:"column:plan_description" json:"planDescription"`
 	PlanPrice        float64               `gorm:"column:plan_price" json:"planPrice"`
@@ -30,7 +31,7 @@ type ProductPlan struct {
 	Tokens           int64                 `gorm:"column:tokens" json:"tokens"`
 	IsActive         bool                  `gorm:"column:is_active" json:"isActive"`
 	Features         utils.StringSlice     `gorm:"type:json;column:features" json:"features"`
-	UpdatedBy        uint                  `gorm:"column:updated_by" json:"updatedBy"`
+	UpdatedBy        uuid.UUID             `gorm:"column:updated_by" json:"updatedBy"`
 	UpdatedByUser    User                  `gorm:"foreignKey:UpdatedBy;references:ID" json:"-"`
 	PaymentGatewayID utils.JSONMap[string] `gorm:"type:json;column:payment_gateway_id" json:"paymentGatewayId"`
 	CreatedAt        time.Time             `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
@@ -60,7 +61,7 @@ func (pps *ProductPlanStore) CreateProductPlan(plan *dto.ProductPlanCreate, user
 	return tx.Error
 }
 
-func (pps *ProductPlanStore) UpdateProductPlan(id uint, plan *dto.ProductPlanCreate, user *User) error {
+func (pps *ProductPlanStore) UpdateProductPlan(id uuid.UUID, plan *dto.ProductPlanCreate, user *User) error {
 	var ProductPlan ProductPlan
 	if err := pps.DB.First(&ProductPlan, id).Error; err != nil {
 		return err

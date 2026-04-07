@@ -369,7 +369,7 @@ func (rpg *RazorpayPG) ProcessSubscriptions(subscription RazorpayBaseEvent[Razor
 			return nil, errors.New("subscription charged event without payment payload")
 		}
 		// Ensure relations are loaded
-		if userSub.ProductPlanID != 0 && (userSub.ProductPlan.ID == 0) {
+		if userSub.ProductPlanID.String() != "" && (userSub.ProductPlan.ID.String() == "") {
 			return nil, errors.New("failed to load product plan")
 		}
 
