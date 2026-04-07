@@ -41,7 +41,7 @@ var SubscriptionHooks []SubscriptionStatus = []SubscriptionStatus{
 }
 
 func SubscriptionWebhookIsValid(webhook string) bool {
-	return webhook == "order.paid" || webhook == "subscription.created" || slices.Contains[[]SubscriptionStatus, SubscriptionStatus](SubscriptionHooks, SubscriptionStatus(webhook))
+	return webhook == "order.paid" || webhook == "subscription.created" || slices.Contains(SubscriptionHooks, SubscriptionStatus(webhook))
 }
 
 type TransactionStatus string
